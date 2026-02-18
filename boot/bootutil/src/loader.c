@@ -646,7 +646,7 @@ check_validity:
 #endif
     if (FIH_NOT_EQ(fih_rc, FIH_SUCCESS)) {
 #if !defined(__BOOTSIM__)
-        BOOT_LOG_ERR("Image in the %s slot is not valid!",
+        BOOT_LOG_WRN("Image in the %s slot is not valid!",
                      (slot == BOOT_SLOT_PRIMARY) ? "primary" : "secondary");
 #endif
         if ((slot != BOOT_SLOT_PRIMARY) || ARE_SLOTS_EQUIVALENT()) {
