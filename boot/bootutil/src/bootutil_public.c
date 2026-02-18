@@ -473,7 +473,7 @@ boot_swap_type_multi(int image_index)
                 table->copy_done_secondary_slot == secondary_slot.copy_done)
 #endif
             ) {
-            BOOT_LOG_INF("Image index: %d, Swap type: %s", image_index,
+            BOOT_LOG_DBG("Image index: %d, Swap type: %s", image_index,
                          table->swap_type == BOOT_SWAP_TYPE_TEST   ? "test"   :
                          table->swap_type == BOOT_SWAP_TYPE_PERM   ? "perm"   :
                          table->swap_type == BOOT_SWAP_TYPE_REVERT ? "revert" :
@@ -487,7 +487,7 @@ boot_swap_type_multi(int image_index)
         }
     }
 
-    BOOT_LOG_INF("Image index: %d, Swap type: none", image_index);
+    BOOT_LOG_DBG("Image index: %d, Swap type: none", image_index);
     return BOOT_SWAP_TYPE_NONE;
 }
 
