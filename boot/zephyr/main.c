@@ -632,7 +632,7 @@ int main(void)
 #endif
 
     if (FIH_NOT_EQ(fih_rc, FIH_SUCCESS)) {
-        BOOT_LOG_ERR("Unable to find bootable image");
+        BOOT_LOG_WRN("Unable to find bootable image");
 
         mcuboot_status_change(MCUBOOT_STATUS_NO_BOOTABLE_IMAGE_FOUND);
 
@@ -655,10 +655,10 @@ int main(void)
     }
 
 #ifdef MCUBOOT_RAM_LOAD
-    BOOT_LOG_INF("Bootloader chainload address offset: 0x%x",
+    BOOT_LOG_DBG("Bootloader chainload address offset: 0x%x",
                  rsp.br_hdr->ih_load_addr);
 #else
-    BOOT_LOG_INF("Bootloader chainload address offset: 0x%x",
+    BOOT_LOG_DBG("Bootloader chainload address offset: 0x%x",
                  rsp.br_image_off);
 #endif
 
