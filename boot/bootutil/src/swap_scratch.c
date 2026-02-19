@@ -26,6 +26,7 @@
 #include "swap_priv.h"
 #include "bootutil/bootutil_log.h"
 
+#include "bootutil/mcuboot_status.h"
 #include "mcuboot_config/mcuboot_config.h"
 
 BOOT_LOG_MODULE_DECLARE(mcuboot);
@@ -928,6 +929,8 @@ swap_run(struct boot_loader_state *state, struct boot_status *bs,
 
     last_sector_idx = find_last_sector_idx(state, copy_size);
 
+    int total_sectors = last_sector_idx + 1;
+
     swap_idx = 0;
     while (last_sector_idx >= 0) {
         sz = boot_copy_sz(state, last_sector_idx, &first_sector_idx);
@@ -935,6 +938,7 @@ swap_run(struct boot_loader_state *state, struct boot_status *bs,
             boot_swap_sectors(first_sector_idx, sz, state, bs);
         }
 
+        mcuboot_progress(MCUBOOT_PROGRESS_SWAP, swap_idx, total_sectors);
         MCUBOOT_WATCHDOG_FEED();
         last_sector_idx = first_sector_idx - 1;
         swap_idx++;
