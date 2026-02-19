@@ -21,10 +21,22 @@ typedef enum
 	MCUBOOT_STATUS_SERIAL_DFU_ENTERED,
 } mcuboot_status_type_t;
 
+typedef enum {
+	MCUBOOT_PROGRESS_SWAP = 0,
+	MCUBOOT_PROGRESS_UPLOAD,
+} mcuboot_progress_type_t;
+
 #if defined(CONFIG_MCUBOOT_ACTION_HOOKS)
 extern void mcuboot_status_change(mcuboot_status_type_t status);
 #else
 #define mcuboot_status_change(_status) do {} while (0)
+#endif
+
+#if defined(CONFIG_MCUBOOT_PROGRESS_HOOKS)
+extern void mcuboot_progress(mcuboot_progress_type_t type,
+			     uint32_t offset, uint32_t total);
+#else
+#define mcuboot_progress(_type, _offset, _total) do {} while (0)
 #endif
 
 #endif /* H_MCUBOOT_STATUS_ */

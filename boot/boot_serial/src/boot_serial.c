@@ -74,6 +74,7 @@
 #endif
 
 #include "bootutil/boot_hooks.h"
+#include "bootutil/mcuboot_status.h"
 
 BOOT_LOG_MODULE_DECLARE(mcuboot);
 
@@ -1161,8 +1162,14 @@ bs_upload(char *buf, int len)
     }
 
     if (rc == 0) {
+        uint32_t prev_sector = curr_off >> 12; /* 4KB sectors */
+
         curr_off += img_chunk_len + rem_bytes;
+        if ((curr_off >> 12) != prev_sector) {
+            mcuboot_progress(MCUBOOT_PROGRESS_UPLOAD, curr_off, img_size);
+        }
         if (curr_off == img_size) {
+            mcuboot_progress(MCUBOOT_PROGRESS_UPLOAD, img_size, img_size);
 #if defined(MCUBOOT_ERASE_PROGRESSIVELY) && defined(BOOT_IMAGE_HAS_STATUS_FIELDS)
             /* Assure that sector for image trailer was erased. */
             /* Check whether it was erased during previous upload. */
