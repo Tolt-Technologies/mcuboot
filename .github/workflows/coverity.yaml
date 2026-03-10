@@ -4,6 +4,9 @@
 name: Coverity Scan
 
 on:
+  push:
+    branches:
+      - ci/coverity-scan
   schedule:
     # Weekly on Sunday at 02:00 UTC (within Coverity build-submission limits)
     - cron: '0 2 * * 0'
