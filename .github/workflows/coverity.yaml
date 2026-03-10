@@ -72,7 +72,7 @@ jobs:
 
       - name: Configure Coverity for Zephyr ARM toolchain
         run: |
-          COMPILER=$(find /opt/zephyr-sdk-*/arm-zephyr-eabi/bin \
+          COMPILER=$(find $GITHUB_WORKSPACE/repos/zephyr/zephyr-sdk/arm-zephyr-eabi/bin \
             -name 'arm-zephyr-eabi-gcc' | head -1)
           cov-configure --comptype gcc --compiler "${COMPILER}"
 
