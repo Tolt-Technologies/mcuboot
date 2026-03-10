@@ -56,6 +56,10 @@ jobs:
         with:
           path: 'repos/bootloader/mcuboot'
 
+      - name: Install curl
+        run: |
+          apt-get update && apt-get install -y curl
+
       - name: Download Coverity Build Tool
         run: |
           curl -fsS -o /tmp/cov-analysis.tar.gz \
