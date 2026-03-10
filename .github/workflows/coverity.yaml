@@ -63,8 +63,7 @@ jobs:
       - name: Download Coverity Build Tool
         run: |
           curl -fsS -o /tmp/cov-analysis.tar.gz \
-            --form token="${{ secrets.COVERITY_SCAN_TOKEN }}" \
-            --form project="${COVERITY_PROJECT}" \
+            -d "token=${{ secrets.COVERITY_SCAN_TOKEN }}&project=${COVERITY_PROJECT}" \
             https://scan.coverity.com/download/linux64
           mkdir -p /opt/coverity
           tar xzf /tmp/cov-analysis.tar.gz --strip-components=1 -C /opt/coverity
