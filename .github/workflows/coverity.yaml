@@ -1,0 +1,95 @@
+# Copyright (c) 2026 MCUboot contributors
+# SPDX-License-Identifier: Apache-2.0
+
+name: Coverity Scan
+
+on:
+  schedule:
+    # Weekly on Sunday at 02:00 UTC (within Coverity build-submission limits)
+    - cron: '0 2 * * 0'
+  workflow_dispatch:
+
+# Only one Coverity scan at a time
+concurrency:
+  group: coverity-scan
+  cancel-in-progress: true
+
+jobs:
+  coverity:
+    runs-on: ubuntu-24.04
+    container:
+      image: zephyrprojectrtos/ci-base:v0.28.4
+      options: '--entrypoint /bin/bash'
+      volumes:
+        - /home/runners/zephyrproject:/github/cache/zephyrproject
+
+    env:
+      COVERITY_PROJECT: mcu-tools-mcuboot
+
+    steps:
+      - name: Checkout Zephyr
+        uses: actions/checkout@v4
+        with:
+          repository: 'zephyrproject-rtos/zephyr'
+          ref: 'main'
+          path: 'repos/zephyr'
+
+      - name: Setup python requirements
+        working-directory: repos/zephyr
+        run: |
+          pip install -r scripts/requirements-actions.txt --require-hashes
+
+      - name: Setup toolchains
+        uses: zephyrproject-rtos/action-zephyr-setup@c125c5ebeeadbd727fa740b407f862734af1e52a # v1.0.9
+        with:
+          base-path: repos/zephyr
+          toolchains: arm-zephyr-eabi
+          sdk-version: 0.17.4
+          west-project-filter: -.*,+cmsis,+cmsis_6,+hal_nordic,+mbedtls,+mcuboot,+tinycrypt,+zcbor
+          ccache-max-size: 256MB
+
+      - name: Checkout MCUBoot
+        uses: actions/checkout@v4
+        with:
+          path: 'repos/bootloader/mcuboot'
+
+      - name: Download Coverity Build Tool
+        run: |
+          curl -fsS -o /tmp/cov-analysis.tar.gz \
+            --form token="${{ secrets.COVERITY_SCAN_TOKEN }}" \
+            --form project="${COVERITY_PROJECT}" \
+            https://scan.coverity.com/download/linux64
+          mkdir -p /opt/coverity
+          tar xzf /tmp/cov-analysis.tar.gz --strip-components=1 -C /opt/coverity
+          rm /tmp/cov-analysis.tar.gz
+          echo "/opt/coverity/bin" >> "$GITHUB_PATH"
+
+      - name: Configure Coverity for Zephyr ARM toolchain
+        run: |
+          COMPILER=$(find /opt/zephyr-sdk-*/arm-zephyr-eabi/bin \
+            -name 'arm-zephyr-eabi-gcc' | head -1)
+          cov-configure --comptype gcc --compiler "${COMPILER}"
+
+      - name: Build with Coverity
+        working-directory: repos/zephyr
+        run: |
+          export ZEPHYR_BASE=${PWD}
+          export ZEPHYR_TOOLCHAIN_VARIANT=zephyr
+          cov-build --dir cov-int \
+            west build -b nrf52840dk/nrf52840 \
+              ../bootloader/mcuboot/boot/zephyr -- \
+              -DCONFIG_BOOT_SIGNATURE_TYPE_RSA=y \
+              -DCONFIG_BOOT_SERIAL_IMG_GRP_HASH=y
+          tail -20 cov-int/build-log.txt
+
+      - name: Submit results to Coverity Scan
+        working-directory: repos/zephyr
+        run: |
+          tar czvf mcuboot.tgz cov-int
+          curl -fsS \
+            --form token="${{ secrets.COVERITY_SCAN_TOKEN }}" \
+            --form email="${{ secrets.COVERITY_SCAN_EMAIL }}" \
+            --form file=@mcuboot.tgz \
+            --form version="${{ github.sha }}" \
+            --form description="MCUboot weekly Coverity scan" \
+            "https://scan.coverity.com/builds?project=${COVERITY_PROJECT}"
