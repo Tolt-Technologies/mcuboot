@@ -27,7 +27,7 @@ jobs:
         - /home/runners/zephyrproject:/github/cache/zephyrproject
 
     env:
-      COVERITY_PROJECT: mcu-tools-mcuboot
+      COVERITY_PROJECT: mcu-tools-MCUBoot
 
     steps:
       - name: Checkout Zephyr
