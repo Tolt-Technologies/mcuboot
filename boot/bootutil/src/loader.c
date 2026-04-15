@@ -645,10 +645,7 @@ boot_validate_slot(struct boot_loader_state *state, int slot,
 check_validity:
 #endif
     if (FIH_NOT_EQ(fih_rc, FIH_SUCCESS)) {
-#if !defined(__BOOTSIM__)
-        BOOT_LOG_WRN("Image in the %s slot is not valid!",
-                     (slot == BOOT_SLOT_PRIMARY) ? "primary" : "secondary");
-#endif
+        /* Specific failure cause is logged by bootutil_img_validate(). */
         if ((slot != BOOT_SLOT_PRIMARY) || ARE_SLOTS_EQUIVALENT()) {
             boot_scramble_slot(fap, slot);
             /* Image is invalid, erase it to prevent further unnecessary

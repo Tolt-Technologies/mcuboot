@@ -27,6 +27,7 @@
  */
 
 #include <stddef.h>
+#include <stdbool.h>
 #include <stdint.h>
 #include <inttypes.h>
 #include <string.h>
@@ -216,6 +217,7 @@ bootutil_img_validate(struct boot_loader_state *state,
     uint32_t img_sz;
 #ifdef EXPECTED_SIG_TLV
     FIH_DECLARE(valid_signature, FIH_FAILURE);
+    bool sig_tlv_seen = false;
 #ifndef MCUBOOT_BUILTIN_KEY
     int key_id = -1;
 #else
@@ -226,6 +228,10 @@ bootutil_img_validate(struct boot_loader_state *state,
 #endif /* !MCUBOOT_BUILTIN_KEY */
 #ifdef MCUBOOT_HW_KEY
     uint8_t key_buf[KEY_BUF_SIZE];
+#endif
+#ifdef EXPECTED_KEY_TLV
+    bool key_tlv_seen = false;
+    bool key_tlv_matched = false;
 #endif
 #endif /* EXPECTED_SIG_TLV */
     struct image_tlv_iter it;
@@ -365,6 +371,7 @@ bootutil_img_validate(struct boot_loader_state *state,
         case EXPECTED_KEY_TLV:
         {
             BOOT_LOG_DBG("bootutil_img_validate: EXPECTED_KEY_TLV == %d", EXPECTED_KEY_TLV);
+            key_tlv_seen = true;
             /*
              * Determine which key we should be checking.
              */
@@ -385,6 +392,9 @@ bootutil_img_validate(struct boot_loader_state *state,
             }
             key_id = bootutil_find_key(image_index, key_buf, len);
 #endif /* !MCUBOOT_HW_KEY */
+            if (key_id >= 0) {
+                key_tlv_matched = true;
+            }
             /*
              * The key may not be found, which is acceptable.  There
              * can be multiple signatures, each preceded by a key.
@@ -396,6 +406,7 @@ bootutil_img_validate(struct boot_loader_state *state,
         case EXPECTED_SIG_TLV:
         {
             BOOT_LOG_DBG("bootutil_img_validate: EXPECTED_SIG_TLV == %d", EXPECTED_SIG_TLV);
+            sig_tlv_seen = true;
             /* Ignore this signature if it is out of bounds. */
             if (key_id < 0 || key_id >= bootutil_key_cnt) {
                 key_id = -1;
@@ -586,6 +597,38 @@ out:
     if (rc) {
         FIH_SET(fih_rc, FIH_FAILURE);
     }
+
+#if !defined(__BOOTSIM__)
+    if (FIH_NOT_EQ(fih_rc, FIH_SUCCESS)) {
+#ifdef EXPECTED_SIG_TLV
+        if (!sig_tlv_seen) {
+            BOOT_LOG_INF("Image rejected: unsigned (no signature TLV)");
+        } else if (FIH_NOT_EQ(valid_signature, FIH_SUCCESS)) {
+            BOOT_LOG_WRN("Image rejected: signature verification failed");
+        } else
+#endif
+#ifdef EXPECTED_KEY_TLV
+        if (!key_tlv_seen) {
+            BOOT_LOG_WRN("Image rejected: no key TLV");
+        } else if (!key_tlv_matched) {
+            BOOT_LOG_WRN("Image rejected: key does not match bootloader");
+        } else
+#endif
+#if defined(EXPECTED_HASH_TLV) && !defined(MCUBOOT_SIGN_PURE)
+        if (!image_hash_valid) {
+            BOOT_LOG_WRN("Image rejected: hash mismatch");
+        } else
+#endif
+#ifdef MCUBOOT_HW_ROLLBACK_PROT
+        if (FIH_NOT_EQ(security_counter_valid, FIH_SUCCESS)) {
+            BOOT_LOG_WRN("Image rejected: security counter check failed");
+        } else
+#endif
+        {
+            BOOT_LOG_WRN("Image rejected: validation failed (rc=%d)", rc);
+        }
+    }
+#endif /* !__BOOTSIM__ */
 
     FIH_RET(fih_rc);
 }
