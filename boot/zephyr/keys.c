@@ -29,7 +29,8 @@
 #include <mcuboot_config/mcuboot_config.h>
 
 #if !defined(MCUBOOT_HW_KEY)
-#if defined(MCUBOOT_SIGN_RSA) || defined(MCUBOOT_SIGN_EC256) || defined(MCUBOOT_SIGN_ED25519)
+#if defined(MCUBOOT_SIGN_RSA) || defined(MCUBOOT_SIGN_EC256) || \
+    defined(MCUBOOT_SIGN_EC384) || defined(MCUBOOT_SIGN_ED25519)
 #define HAVE_KEYS
 #if defined(MCUBOOT_SIGN_RSA)
 extern const unsigned char rsa_pub_key[];
@@ -37,6 +38,9 @@ extern unsigned int rsa_pub_key_len;
 #elif defined(MCUBOOT_SIGN_EC256)
 extern const unsigned char ecdsa_pub_key[];
 extern unsigned int ecdsa_pub_key_len;
+#elif defined(MCUBOOT_SIGN_EC384)
+extern const unsigned char ecdsap384_pub_key[];
+extern unsigned int ecdsap384_pub_key_len;
 #elif defined(MCUBOOT_SIGN_ED25519)
 extern const unsigned char ed25519_pub_key[];
 extern unsigned int ed25519_pub_key_len;
@@ -57,6 +61,9 @@ const struct bootutil_key bootutil_keys[] = {
 #elif defined(MCUBOOT_SIGN_EC256)
         .key = ecdsa_pub_key,
         .len = &ecdsa_pub_key_len,
+#elif defined(MCUBOOT_SIGN_EC384)
+        .key = ecdsap384_pub_key,
+        .len = &ecdsap384_pub_key_len,
 #elif defined(MCUBOOT_SIGN_ED25519)
         .key = ed25519_pub_key,
         .len = &ed25519_pub_key_len,

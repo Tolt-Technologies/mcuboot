@@ -355,6 +355,23 @@ endchoice # Ecdsa implementation
 
 endif
 
+config BOOT_SIGNATURE_TYPE_ECDSA_P384
+	bool "Elliptic curve digital signatures with curve P-384"
+	select BOOT_IMG_HASH_ALG_SHA384_ALLOW
+	select BOOT_USE_PSA_CRYPTO
+	select PSA_CRYPTO_CLIENT
+	select PSA_CRYPTO_C
+	select PSA_WANT_ALG_ECDSA
+	select PSA_WANT_KEY_TYPE_ECC_PUBLIC_KEY
+	select PSA_WANT_ECC_SECP_R1_384
+	select PSA_WANT_ALG_SHA_384
+	help
+	  ECDSA image signature verification using NIST P-384 curve and
+	  SHA-384 hash. Only supported via the PSA Crypto backend; the
+	  tinycrypt and legacy mbedTLS ECDSA backends are hardcoded to P-256.
+	  When using the mbedTLS PSA backend, requires
+	  MBEDTLS_ECP_DP_SECP384R1_ENABLED.
+
 config BOOT_SIGNATURE_TYPE_ED25519
 	bool "Edwards curve digital signatures using ed25519"
 	select BOOT_ENCRYPTION_SUPPORT if !BOOT_SIGNATURE_TYPE_PURE
