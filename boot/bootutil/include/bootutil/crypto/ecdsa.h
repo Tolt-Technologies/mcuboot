@@ -50,6 +50,9 @@
 #if defined(MCUBOOT_USE_PSA_CRYPTO)
     #include <psa/crypto.h>
     #include <string.h>
+    #if defined(MBEDTLS_MEMORY_DEBUG) || defined(CONFIG_MBEDTLS_MEMORY_DEBUG)
+    #include <mbedtls/memory_buffer_alloc.h>
+    #endif
 #elif defined(MCUBOOT_USE_MBED_TLS)
     #include <mbedtls/ecdsa.h>
     /* Indicate to the caller that the verify function needs the raw ASN.1
@@ -496,6 +499,13 @@ static inline int bootutil_ecdsa_verify(bootutil_ecdsa_context *ctx,
 
     parse_signature_from_rfc5480_encoding(sig, ctx->curve_byte_count,reformatted_signature);
 
+    /* P-384 ECDSA verify is software ECP scalar-mult on Cortex-M33; takes
+     * ~15 s with no hardware acceleration. Log before the call so SWO
+     * watchers know the bootloader is grinding, not hung. */
+    BOOT_LOG_INF("Verifying image signature (ECDSA P-%u, SHA-%u)...",
+                 (unsigned)(ctx->curve_byte_count * 8),
+                 (unsigned)(ctx->curve_byte_count * 8));
+
     status = psa_verify_hash(ctx->key_id, PSA_ALG_ECDSA(ctx->required_algorithm),
                              hash, hlen, reformatted_signature, 2*ctx->curve_byte_count);
     if (status != PSA_SUCCESS) {
@@ -503,6 +513,18 @@ static inline int bootutil_ecdsa_verify(bootutil_ecdsa_context *ctx,
                      (int)status, (unsigned)hlen,
                      (unsigned)(2 * ctx->curve_byte_count));
     }
+#if defined(MBEDTLS_MEMORY_DEBUG) || defined(CONFIG_MBEDTLS_MEMORY_DEBUG)
+    /* Sizing instrumentation for CONFIG_MBEDTLS_HEAP_SIZE. Reports the
+     * post-verify peak so the arena can be trimmed to its actual
+     * high-water mark. Remove this block (and disable MEMORY_DEBUG) once
+     * the heap size is finalized. */
+    {
+        size_t max_used = 0, max_blocks = 0;
+        mbedtls_memory_buffer_alloc_max_get(&max_used, &max_blocks);
+        BOOT_LOG_INF("ecdsa: mbedTLS heap peak %u bytes / %u blocks",
+                     (unsigned)max_used, (unsigned)max_blocks);
+    }
+#endif
     return (int)status;
 }
 #elif defined(MCUBOOT_USE_MBED_TLS)
