@@ -56,8 +56,8 @@ bootutil_img_hash(struct boot_loader_state *state,
     uint16_t hdr_size;
     uint32_t blk_off;
     uint32_t tlv_off;
-#if !defined(MCUBOOT_HASH_STORAGE_DIRECTLY)
     int rc;
+#if !defined(MCUBOOT_HASH_STORAGE_DIRECTLY)
     uint32_t off;
     uint32_t blk_sz;
 #endif
@@ -111,12 +111,21 @@ bootutil_img_hash(struct boot_loader_state *state,
     sector_off = boot_get_state_secondary_offset(state, fap);
 #endif
 
-    bootutil_sha_init(&sha_ctx);
+    rc = bootutil_sha_init(&sha_ctx);
+    if (rc != 0) {
+        BOOT_LOG_WRN("bootutil_sha_init failed (rc=%d)", rc);
+        return rc;
+    }
 
     /* in some cases (split image) the hash is seeded with data from
      * the loader image */
     if (seed && (seed_len > 0)) {
-        bootutil_sha_update(&sha_ctx, seed, seed_len);
+        rc = bootutil_sha_update(&sha_ctx, seed, seed_len);
+        if (rc != 0) {
+            BOOT_LOG_WRN("bootutil_sha_update(seed) failed (rc=%d)", rc);
+            bootutil_sha_drop(&sha_ctx);
+            return rc;
+        }
     }
 
     /* Hash is computed over image header and image itself. */
@@ -136,12 +145,22 @@ bootutil_img_hash(struct boot_loader_state *state,
         base = 0;
     }
 
-    bootutil_sha_update(&sha_ctx, (void *)(base + flash_area_get_off(fap)), size);
+    rc = bootutil_sha_update(&sha_ctx, (void *)(base + flash_area_get_off(fap)), size);
+    if (rc != 0) {
+        BOOT_LOG_WRN("bootutil_sha_update(direct) failed (rc=%d)", rc);
+        bootutil_sha_drop(&sha_ctx);
+        return rc;
+    }
 #else /* MCUBOOT_HASH_STORAGE_DIRECTLY */
 #ifdef MCUBOOT_RAM_LOAD
-    bootutil_sha_update(&sha_ctx,
-                        (void*)(IMAGE_RAM_BASE + hdr->ih_load_addr),
-                        size);
+    rc = bootutil_sha_update(&sha_ctx,
+                             (void*)(IMAGE_RAM_BASE + hdr->ih_load_addr),
+                             size);
+    if (rc != 0) {
+        BOOT_LOG_WRN("bootutil_sha_update(ram) failed (rc=%d)", rc);
+        bootutil_sha_drop(&sha_ctx);
+        return rc;
+    }
 #else
     for (off = 0; off < size; off += blk_sz) {
         blk_sz = size - off;
@@ -186,11 +205,22 @@ bootutil_img_hash(struct boot_loader_state *state,
             }
         }
 #endif
-        bootutil_sha_update(&sha_ctx, tmp_buf, blk_sz);
+        rc = bootutil_sha_update(&sha_ctx, tmp_buf, blk_sz);
+        if (rc != 0) {
+            BOOT_LOG_WRN("bootutil_sha_update(blk) failed (rc=%d, off=%" PRIu32 ")",
+                         rc, off);
+            bootutil_sha_drop(&sha_ctx);
+            return rc;
+        }
     }
 #endif /* MCUBOOT_RAM_LOAD */
 #endif /* MCUBOOT_HASH_STORAGE_DIRECTLY */
-    bootutil_sha_finish(&sha_ctx, hash_result);
+    rc = bootutil_sha_finish(&sha_ctx, hash_result);
+    if (rc != 0) {
+        BOOT_LOG_WRN("bootutil_sha_finish failed (rc=%d)", rc);
+        bootutil_sha_drop(&sha_ctx);
+        return rc;
+    }
     bootutil_sha_drop(&sha_ctx);
 
     return 0;

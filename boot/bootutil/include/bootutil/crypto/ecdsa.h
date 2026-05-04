@@ -439,6 +439,7 @@ static int bootutil_ecdsa_parse_public_key(bootutil_ecdsa_context *ctx,
      * calls are safe per encrypted_psa.c. */
     status = psa_crypto_init();
     if (status != PSA_SUCCESS) {
+        BOOT_LOG_WRN("ecdsa: psa_crypto_init failed (status=%d)", (int)status);
         return (int)status;
     }
 
@@ -469,7 +470,12 @@ static int bootutil_ecdsa_parse_public_key(bootutil_ecdsa_context *ctx,
     psa_set_key_algorithm(&key_attributes, PSA_ALG_ECDSA(ctx->required_algorithm));
     psa_set_key_type(&key_attributes, PSA_KEY_TYPE_ECC_PUBLIC_KEY(PSA_ECC_FAMILY_SECP_R1));
 
-    return (int)psa_import_key(&key_attributes, *cp, key_size, &ctx->key_id);
+    status = psa_import_key(&key_attributes, *cp, key_size, &ctx->key_id);
+    if (status != PSA_SUCCESS) {
+        BOOT_LOG_WRN("ecdsa: psa_import_key failed (status=%d, key_size=%u)",
+                     (int)status, (unsigned)key_size);
+    }
+    return (int)status;
 }
 #endif /* !MCUBOOT_BUILTIN_KEY */
 
@@ -486,10 +492,18 @@ static inline int bootutil_ecdsa_verify(bootutil_ecdsa_context *ctx,
     (void)slen;
 
     uint8_t reformatted_signature[96] = {0}; /* Enough for P-384 signature sizes */
+    psa_status_t status;
+
     parse_signature_from_rfc5480_encoding(sig, ctx->curve_byte_count,reformatted_signature);
 
-    return (int) psa_verify_hash(ctx->key_id, PSA_ALG_ECDSA(ctx->required_algorithm),
-                                 hash, hlen, reformatted_signature, 2*ctx->curve_byte_count);
+    status = psa_verify_hash(ctx->key_id, PSA_ALG_ECDSA(ctx->required_algorithm),
+                             hash, hlen, reformatted_signature, 2*ctx->curve_byte_count);
+    if (status != PSA_SUCCESS) {
+        BOOT_LOG_WRN("ecdsa: psa_verify_hash failed (status=%d, hlen=%u, slen=%u)",
+                     (int)status, (unsigned)hlen,
+                     (unsigned)(2 * ctx->curve_byte_count));
+    }
+    return (int)status;
 }
 #elif defined(MCUBOOT_USE_MBED_TLS)
 
