@@ -551,6 +551,21 @@ int main(void)
 #if defined(CONFIG_BOOT_USB_DFU_GPIO) || defined(CONFIG_BOOT_USB_DFU_WAIT)
     bool usb_dfu_requested = false;
 #endif
+
+    /*
+     * Seed the FIH delay RNG before any FIH macro fires. FIH_DECLARE
+     * below expands into FIH_SET, which calls fih_delay() unconditionally
+     * when FIH_ENABLE_DELAY is set (the default for FIH_PROFILE_HIGH).
+     * The mbedTLS-backed delay RNG (fih_drbg_ctx) lives in BSS, so without
+     * this call its f_entropy callback is NULL and the first fih_delay()
+     * faults on a NULL function-pointer call from
+     * mbedtls_ctr_drbg_reseed_internal.
+     *
+     * fih_delay_init is a no-op (always_inline returning 1) when delay is
+     * disabled, so this is unconditional.
+     */
+    (void)fih_delay_init();
+
     FIH_DECLARE(fih_rc, FIH_FAILURE);
 
     MCUBOOT_WATCHDOG_SETUP();
