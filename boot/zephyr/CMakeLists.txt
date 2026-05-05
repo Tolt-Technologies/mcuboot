@@ -96,7 +96,8 @@ zephyr_sources(
 )
 
 if((CONFIG_BOOT_ENCRYPT_X25519 AND CONFIG_BOOT_ED25519_PSA)
-  OR (CONFIG_BOOT_ENCRYPT_EC256 AND CONFIG_BOOT_ECDSA_PSA))
+  OR (CONFIG_BOOT_ENCRYPT_EC256 AND CONFIG_BOOT_ECDSA_PSA)
+  OR (CONFIG_BOOT_ENCRYPT_X25519 AND CONFIG_BOOT_SIGNATURE_TYPE_ECDSA_P384))
   zephyr_sources(${BOOT_DIR}/bootutil/src/encrypted_psa.c)
 endif()
 
@@ -251,14 +252,16 @@ elseif(CONFIG_BOOT_SIGNATURE_TYPE_ED25519 OR CONFIG_BOOT_ENCRYPT_X25519)
     ${FIAT_DIR}/include/
   )
 
-  if(NOT CONFIG_BOOT_ED25519_PSA)
+  if(NOT CONFIG_BOOT_ED25519_PSA AND NOT CONFIG_BOOT_USE_PSA_CRYPTO)
     zephyr_sources(${FIAT_DIR}/src/curve25519.c)
   else()
     if(MBEDTLS_ASN1_DIR)
       zephyr_sources(${MBEDTLS_ASN1_DIR}/src/asn1parse.c)
     endif()
 
-    zephyr_sources(${BOOT_DIR}/bootutil/src/ed25519_psa.c)
+    if(CONFIG_BOOT_ED25519_PSA)
+      zephyr_sources(${BOOT_DIR}/bootutil/src/ed25519_psa.c)
+    endif()
   endif()
 endif()
 

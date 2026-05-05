@@ -50,7 +50,7 @@ BOOT_LOG_MODULE_DECLARE(mcuboot);
 #include "bootutil_priv.h"
 
 /* NOUP Fixme:  */
-#if !defined(CONFIG_BOOT_ED25519_PSA) && !defined(CONFIG_BOOT_ECDSA_PSA)
+#if !defined(MCUBOOT_USE_PSA_CRYPTO)
 #if defined(MCUBOOT_ENCRYPT_EC256) || defined(MCUBOOT_ENCRYPT_X25519)
 #if defined(_compare)
 static inline int bootutil_constant_time_compare(const uint8_t *a, const uint8_t *b, size_t size)
@@ -96,7 +96,7 @@ done:
 }
 #endif /* MCUBOOT_ENCRYPT_KW */
 
-#if defined(MCUBOOT_ENCRYPT_EC256)
+#if defined(MCUBOOT_ENCRYPT_EC256) && !defined(MCUBOOT_USE_PSA_CRYPTO)
 static const uint8_t ec_pubkey_oid[] = MBEDTLS_OID_EC_ALG_UNRESTRICTED;
 static const uint8_t ec_secp256r1_oid[] = MBEDTLS_OID_EC_GRP_SECP256R1;
 
@@ -171,9 +171,9 @@ parse_priv_enckey(uint8_t **p, uint8_t *end, uint8_t *private_key)
 
     return 0;
 }
-#endif /* defined(MCUBOOT_ENCRYPT_EC256) */
+#endif /* defined(MCUBOOT_ENCRYPT_EC256) && !defined(MCUBOOT_USE_PSA_CRYPTO) */
 
-#if defined(MCUBOOT_ENCRYPT_X25519)
+#if defined(MCUBOOT_ENCRYPT_X25519) && !defined(MCUBOOT_USE_PSA_CRYPTO)
 #define X25519_OID "\x6e"
 static const uint8_t ec_pubkey_oid[] = MBEDTLS_OID_ISO_IDENTIFIED_ORG \
                                        MBEDTLS_OID_ORG_GOV X25519_OID;
@@ -224,9 +224,9 @@ parse_priv_enckey(uint8_t **p, uint8_t *end, uint8_t *private_key)
     memcpy(private_key, *p, EC_PRIVK_LEN);
     return 0;
 }
-#endif /* defined(MCUBOOT_ENCRYPT_X25519) */
+#endif /* defined(MCUBOOT_ENCRYPT_X25519) && !defined(MCUBOOT_USE_PSA_CRYPTO) */
 
-#if defined(MCUBOOT_ENCRYPT_EC256) || defined(MCUBOOT_ENCRYPT_X25519)
+#if (defined(MCUBOOT_ENCRYPT_EC256) || defined(MCUBOOT_ENCRYPT_X25519)) && !defined(MCUBOOT_USE_PSA_CRYPTO)
 /*
  * HKDF as described by RFC5869.
  *
