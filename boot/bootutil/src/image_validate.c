@@ -600,6 +600,11 @@ out:
 
 #if !defined(__BOOTSIM__)
     if (FIH_NOT_EQ(fih_rc, FIH_SUCCESS)) {
+#if defined(EXPECTED_HASH_TLV) && !defined(MCUBOOT_SIGN_PURE)
+        if (!image_hash_valid) {
+            BOOT_LOG_WRN("Image rejected: hash check failed");
+        } else
+#endif
 #ifdef EXPECTED_SIG_TLV
         if (!sig_tlv_seen) {
             BOOT_LOG_INF("Image rejected: unsigned (no signature TLV)");
@@ -612,11 +617,6 @@ out:
             BOOT_LOG_WRN("Image rejected: no key TLV");
         } else if (!key_tlv_matched) {
             BOOT_LOG_WRN("Image rejected: key does not match bootloader");
-        } else
-#endif
-#if defined(EXPECTED_HASH_TLV) && !defined(MCUBOOT_SIGN_PURE)
-        if (!image_hash_valid) {
-            BOOT_LOG_WRN("Image rejected: hash mismatch");
         } else
 #endif
 #ifdef MCUBOOT_HW_ROLLBACK_PROT
