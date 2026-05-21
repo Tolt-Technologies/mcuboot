@@ -9,11 +9,21 @@
 #include <zephyr/kernel.h>
 #include <zephyr/usb/usbd.h>
 #include <zephyr/usb/usbd_msg.h>
+#include <zephyr/app_version.h>
 
 #include "bootutil/bootutil_log.h"
 #include "usbd_cdc_serial.h"
 
 BOOT_LOG_MODULE_DECLARE(mcuboot);
+
+/* bcdDevice carries the bootloader's major.minor as packed BCD (high byte
+ * major, low byte minor), letting a host read the bootloader generation from
+ * the recovery USB descriptor with no app and no J-Link. The patch level does
+ * not fit BCD and is dropped: v26.5.x -> 0x2605, shown as "26.05" by lsusb. */
+#define BCD8(n)              ((((n) / 10) << 4) | ((n) % 10))
+#define BOOT_USBD_BCD_DEVICE ((BCD8(APP_VERSION_MAJOR) << 8) | BCD8(APP_VERSION_MINOR))
+BUILD_ASSERT(APP_VERSION_MAJOR <= 99 && APP_VERSION_MINOR <= 99,
+	     "bcdDevice BCD encoding requires major/minor <= 99");
 
 USBD_DEVICE_DEFINE(boot_usbd,
 		   DEVICE_DT_GET(DT_NODELABEL(zephyr_udc0)),
@@ -159,6 +169,12 @@ int boot_usb_cdc_serial_init(void)
 
 	usbd_self_powered(&boot_usbd,
 			  boot_usbd_attributes & USB_SCD_SELF_POWERED);
+
+	err = usbd_device_set_bcd_device(&boot_usbd, BOOT_USBD_BCD_DEVICE);
+	if (err) {
+		BOOT_LOG_ERR("Failed to set bcdDevice: %d", err);
+		return err;
+	}
 
 	err = usbd_msg_register_cb(&boot_usbd, boot_usbd_msg_cb);
 	if (err) {
