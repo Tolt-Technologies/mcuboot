@@ -1215,6 +1215,9 @@ out:
         if (curr_off == img_size) {
             /* Last sector received, now start a decryption on the image if it is encrypted */
             rc = boot_handle_enc_fw(fap);
+            if (rc != 0) {
+                BOOT_LOG_ERR("Recovery image decryption failed: %d", rc);
+            }
         }
     }
 #endif

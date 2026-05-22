@@ -290,11 +290,13 @@ boot_handle_enc_fw(const struct flash_area *flash_area)
 
     if (IS_ENCRYPTED(&_hdr)) {
         //encrypted, we need to decrypt in place
+        BOOT_LOG_INF("Encrypted recovery image detected, decrypting in place");
         FIH_CALL(decrypt_image_inplace,fih_rc,flash_area,&_hdr);
         if (FIH_NOT_EQ(fih_rc, FIH_SUCCESS)) {
             rc = -1;
             goto out;
         }
+        BOOT_LOG_INF("In-place decryption complete");
     }
     else
     {
