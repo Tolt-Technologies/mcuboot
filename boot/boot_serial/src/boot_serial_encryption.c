@@ -16,7 +16,7 @@
 
 #ifdef MCUBOOT_ENC_IMAGES
 
-BOOT_LOG_MODULE_DECLARE(serial_encryption);
+BOOT_LOG_MODULE_REGISTER(serial_encryption);
 
 fih_ret
 boot_image_validate_encrypted(struct boot_loader_state *state,
