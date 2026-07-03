@@ -1563,18 +1563,18 @@ boot_prepare_image_for_update(struct boot_loader_state *state,
 #endif
 
 #ifdef MCUBOOT_BOOTSTRAP
-            /* Bootstrap a valid secondary image into an ERASED primary slot.
-             * The cheap boot_check_header_erased() gates the expensive
-             * boot_validate_slot(PRIMARY), so a normal boot — with an image
-             * already in the primary — skips the P-384 signature verification
-             * entirely (the primary is not re-validated anyway when
-             * MCUBOOT_VALIDATE_PRIMARY_SLOT is off). Scope: bootstrap triggers
-             * only for a truly empty (erased-header) primary; a present but
-             * corrupt primary is left to the normal boot path, consistent with
-             * MCUBOOT_VALIDATE_PRIMARY_SLOT=n.
+            /* Bootstrap a valid secondary image into an empty or corrupt
+             * primary slot. The cheap boot_check_header_valid() gates the
+             * expensive boot_validate_slot(PRIMARY), so a normal boot — with a
+             * structurally valid image already in the primary — skips the P-384
+             * signature verification entirely (the primary is not re-validated
+             * anyway when MCUBOOT_VALIDATE_PRIMARY_SLOT is off). Scope: a
+             * primary that is erased or whose header is corrupt is
+             * (re-)bootstrapped from the secondary, which is itself validated
+             * below before any copy; a structurally valid primary boots as-is.
              */
             if (BOOT_SWAP_TYPE(state) == BOOT_SWAP_TYPE_NONE &&
-                boot_check_header_erased(state, BOOT_SLOT_PRIMARY)) {
+                !boot_check_header_valid(state, BOOT_SLOT_PRIMARY)) {
 
                 rc = (boot_img_hdr(state, BOOT_SLOT_SECONDARY)->ih_magic == IMAGE_MAGIC) ? 1: 0;
                 FIH_CALL(boot_validate_slot, fih_rc,
