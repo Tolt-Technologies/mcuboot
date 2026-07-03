@@ -22,6 +22,9 @@ rusty-tags.*
 # The code cache is a transient file.
 compile_commands.json
 
+# Workspace-local clangd config (points at ../../adt-25-firmware/build-mcuboot).
+.clangd
+
 # Compiled python modules.
 *.pyc
 

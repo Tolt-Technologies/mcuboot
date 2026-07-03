@@ -1563,30 +1563,30 @@ boot_prepare_image_for_update(struct boot_loader_state *state,
 #endif
 
 #ifdef MCUBOOT_BOOTSTRAP
-            if (BOOT_SWAP_TYPE(state) == BOOT_SWAP_TYPE_NONE) {
-                /* Header checks are done first because they are
-                 * inexpensive. Since overwrite-only copies starting from
-                 * offset 0, if interrupted, it might leave a valid header
-                 * magic, so also run validation on the primary slot to be
-                 * sure it's not OK.
-                 */
+            /* Bootstrap a valid secondary image into an ERASED primary slot.
+             * The cheap boot_check_header_erased() gates the expensive
+             * boot_validate_slot(PRIMARY), so a normal boot — with an image
+             * already in the primary — skips the P-384 signature verification
+             * entirely (the primary is not re-validated anyway when
+             * MCUBOOT_VALIDATE_PRIMARY_SLOT is off). Scope: bootstrap triggers
+             * only for a truly empty (erased-header) primary; a present but
+             * corrupt primary is left to the normal boot path, consistent with
+             * MCUBOOT_VALIDATE_PRIMARY_SLOT=n.
+             */
+            if (BOOT_SWAP_TYPE(state) == BOOT_SWAP_TYPE_NONE &&
+                boot_check_header_erased(state, BOOT_SLOT_PRIMARY)) {
+
+                rc = (boot_img_hdr(state, BOOT_SLOT_SECONDARY)->ih_magic == IMAGE_MAGIC) ? 1: 0;
                 FIH_CALL(boot_validate_slot, fih_rc,
-                         state, BOOT_SLOT_PRIMARY, bs, 0);
-                if (boot_check_header_erased(state, BOOT_SLOT_PRIMARY) ||
-                    FIH_NOT_EQ(fih_rc, FIH_SUCCESS)) {
+                         state, BOOT_SLOT_SECONDARY, bs, 0);
 
-                    rc = (boot_img_hdr(state, BOOT_SLOT_SECONDARY)->ih_magic == IMAGE_MAGIC) ? 1: 0;
-                    FIH_CALL(boot_validate_slot, fih_rc,
-                             state, BOOT_SLOT_SECONDARY, bs, 0);
-
-                    if (rc == 1 && FIH_EQ(fih_rc, FIH_SUCCESS)) {
-                        /* Set swap type to REVERT to overwrite the primary
-                         * slot with the image contained in secondary slot
-                         * and to trigger the explicit setting of the
-                         * image_ok flag.
-                         */
-                        BOOT_SWAP_TYPE(state) = BOOT_SWAP_TYPE_REVERT;
-                    }
+                if (rc == 1 && FIH_EQ(fih_rc, FIH_SUCCESS)) {
+                    /* Set swap type to REVERT to overwrite the primary
+                     * slot with the image contained in secondary slot
+                     * and to trigger the explicit setting of the
+                     * image_ok flag.
+                     */
+                    BOOT_SWAP_TYPE(state) = BOOT_SWAP_TYPE_REVERT;
                 }
             }
 #endif
