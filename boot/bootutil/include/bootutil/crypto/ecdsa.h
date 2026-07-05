@@ -506,6 +506,12 @@ static inline int bootutil_ecdsa_verify(bootutil_ecdsa_context *ctx,
                  (unsigned)(ctx->curve_byte_count * 8),
                  (unsigned)(ctx->curve_byte_count * 8));
 
+    /* Feed the watchdog immediately before the verify. The P-384 scalar-mult
+     * is a single uninterruptible PSA call (~15 s in software), so it cannot
+     * be fed from within; feeding here hands it a fresh full watchdog window.
+     * Correct only while one verify is shorter than the watchdog timeout. */
+    MCUBOOT_WATCHDOG_FEED();
+
     status = psa_verify_hash(ctx->key_id, PSA_ALG_ECDSA(ctx->required_algorithm),
                              hash, hlen, reformatted_signature, 2*ctx->curve_byte_count);
     if (status != PSA_SUCCESS) {
