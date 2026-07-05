@@ -136,6 +136,14 @@ bootutil_img_hash(struct boot_loader_state *state,
     /* If protected TLVs are present they are also hashed. */
     size += hdr->ih_protect_tlv_size;
 
+    /* One feed before hashing the whole image. The hash+decrypt pass is
+     * sub-second on this target, so a single feed here covers it with wide
+     * margin — and covers all three modes below uniformly, including the
+     * direct- and RAM-mapped single-shot sha_update paths that are atomic
+     * and cannot be fed from within. The heavy watchdog exposure is the
+     * ECDSA verify, fed separately before psa_verify_hash(). */
+    MCUBOOT_WATCHDOG_FEED();
+
 #ifdef MCUBOOT_HASH_STORAGE_DIRECTLY
     /* No chunk loading, storage is mapped to address space and can
      * be directly given to hashing function.
