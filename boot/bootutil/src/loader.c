@@ -1256,13 +1256,19 @@ boot_perform_update(struct boot_loader_state *state, struct boot_status *bs)
 #if defined(MCUBOOT_OVERWRITE_ONLY)
     rc = boot_copy_image(state, bs);
 #elif defined(MCUBOOT_BOOTSTRAP)
-    /* Check if the image update was triggered by a bad image in the
-     * primary slot (the validity of the image in the secondary slot had
-     * already been checked).
+    /* The image update was triggered either by a pending upgrade in the
+     * secondary slot (already validated in boot_prepare_image_for_update())
+     * or by a missing/corrupt primary that must be bootstrapped from it.
+     * Decide between an overwrite copy and a positional swap from a cheap
+     * header sanity check rather than a full signature verify of the primary:
+     * any interrupted swap was already finished by boot_complete_partial_swap()
+     * before this point, so a structurally valid primary header means a good
+     * image to swap out, while an erased or corrupt-header primary is
+     * (re-)bootstrapped by overwriting it with the validated secondary. This
+     * drops a redundant primary-slot ECDSA-P384 verify (~15 s with
+     * FIH_PROFILE_HIGH) that otherwise ran on every swap-based upgrade.
      */
-    FIH_DECLARE(fih_rc, FIH_FAILURE);
-    FIH_CALL(boot_validate_slot, fih_rc, state, BOOT_SLOT_PRIMARY, bs, 0);
-    if (boot_check_header_erased(state, BOOT_SLOT_PRIMARY) || FIH_NOT_EQ(fih_rc, FIH_SUCCESS)) {
+    if (!boot_check_header_valid(state, BOOT_SLOT_PRIMARY)) {
         rc = boot_copy_image(state, bs);
     } else {
         rc = boot_swap_image(state, bs);

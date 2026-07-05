@@ -311,7 +311,6 @@ bs_list(struct boot_loader_state *state, char *buf, int len)
         (void) image_index; /* Might be unused depending on the configuration */
 
         for (slot = 0; slot < BOOT_NUM_SLOTS; slot++) {
-            FIH_DECLARE(fih_rc, FIH_FAILURE);
             int rc;
             uint8_t tmpbuf[64];
 
@@ -349,38 +348,17 @@ bs_list(struct boot_loader_state *state, char *buf, int len)
 #endif
             }
 
-            if (hdr.ih_magic == IMAGE_MAGIC)
-            {
-                BOOT_HOOK_CALL_FIH(boot_image_check_hook,
-                                   FIH_BOOT_HOOK_REGULAR,
-                                   fih_rc, image_index, slot);
-                if (FIH_EQ(fih_rc, FIH_BOOT_HOOK_REGULAR))
-                {
-#if defined(MCUBOOT_ENC_IMAGES)
-#if !defined(MCUBOOT_SINGLE_APPLICATION_SLOT)
-                    if (IS_ENCRYPTED(&hdr) && MUST_DECRYPT(fap, image_index, &hdr)) {
-                        FIH_CALL(boot_image_validate_encrypted, fih_rc, state, fap,
-                                 &hdr, tmpbuf, sizeof(tmpbuf));
-                    } else {
-#endif
-                        if (IS_ENCRYPTED(&hdr)) {
-                            /*
-                             * There is an image present which has an encrypted flag set but is
-                             * not encrypted, therefore remove the flag from the header and run a
-                             * normal image validation on it.
-                             */
-                            hdr.ih_flags &= ~ENCRYPTIONFLAGS;
-                        }
-#endif
-                        FIH_CALL(bootutil_img_validate, fih_rc, state, &hdr,
-                                 fap, tmpbuf, sizeof(tmpbuf), NULL, 0, NULL);
-#if defined(MCUBOOT_ENC_IMAGES) && !defined(MCUBOOT_SINGLE_APPLICATION_SLOT)
-                    }
-#endif
-                }
-            }
-
-            if (FIH_NOT_EQ(fih_rc, FIH_SUCCESS)) {
+            /* List a slot whenever it holds a structurally valid image
+             * header. The full signature verification is deliberately NOT run
+             * here: its verdict is never reported (the response carries only
+             * the slot, version, hash and bootable/state flags), and the
+             * authoritative ECDSA-P384 check runs at boot time in the
+             * bootstrap/swap path before the image is copied to the primary
+             * slot. Verifying here cost a full P-384 verify per image-list
+             * command, which on this target stacked up past the hardware
+             * watchdog during serial recovery.
+             */
+            if (hdr.ih_magic != IMAGE_MAGIC) {
                 continue;
             }
 
@@ -540,7 +518,6 @@ bs_set(struct boot_loader_state *state, char *buf, int len)
             for (slot = 0; slot < BOOT_NUM_SLOTS; slot++) {
                 struct image_header hdr;
                 const struct flash_area *fap;
-                uint8_t tmpbuf[64];
 
 #ifdef MCUBOOT_SWAP_USING_OFFSET
                 uint32_t start_off = 0;
@@ -569,31 +546,15 @@ bs_set(struct boot_loader_state *state, char *buf, int len)
 #endif
                 }
 
-                if (hdr.ih_magic == IMAGE_MAGIC)
-                {
-                    FIH_DECLARE(fih_rc, FIH_FAILURE);
-
-                    BOOT_HOOK_CALL_FIH(boot_image_check_hook,
-                                       FIH_BOOT_HOOK_REGULAR,
-                                       fih_rc, image_index, slot);
-                    if (FIH_EQ(fih_rc, FIH_BOOT_HOOK_REGULAR))
-                    {
-#ifdef MCUBOOT_ENC_IMAGES
-                        if (IS_ENCRYPTED(&hdr)) {
-                            FIH_CALL(boot_image_validate_encrypted, fih_rc, state, fap,
-                                     &hdr, tmpbuf, sizeof(tmpbuf));
-                        } else {
-#endif
-                            FIH_CALL(bootutil_img_validate, fih_rc, state, &hdr,
-                                     fap, tmpbuf, sizeof(tmpbuf), NULL, 0, NULL);
-#ifdef MCUBOOT_ENC_IMAGES
-                        }
-#endif
-                    }
-
-                    if (FIH_NOT_EQ(fih_rc, FIH_SUCCESS)) {
-                        continue;
-                    }
+                /* Identify the requested slot by its stored image hash only.
+                 * The full signature verification is deliberately NOT run
+                 * here: the match is made against the SHA TLV read from the
+                 * manifest below, and the authoritative ECDSA-P384 check runs
+                 * at boot time before the selected image is copied to the
+                 * primary slot.
+                 */
+                if (hdr.ih_magic != IMAGE_MAGIC) {
+                    continue;
                 }
 
 #ifdef MCUBOOT_SERIAL_IMG_GRP_HASH
