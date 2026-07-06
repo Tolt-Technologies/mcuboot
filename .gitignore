@@ -34,3 +34,7 @@ compile_commands.json
 
 # The target directory from Rust development
 /target/
+
+# Editor / local tooling
+.claude/
+.vscode/
