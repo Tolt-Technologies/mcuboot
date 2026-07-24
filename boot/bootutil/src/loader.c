@@ -1496,8 +1496,8 @@ boot_prepare_image_for_update(struct boot_loader_state *state,
          */
         rc = boot_read_image_headers(state, !boot_status_is_reset(bs), bs);
 #ifdef MCUBOOT_BOOTSTRAP
-        /* When bootstrapping it's OK to not have image magic in the primary slot */
-        if (rc != 0 && !boot_check_header_erased(state, BOOT_SLOT_PRIMARY)) {
+        /* Bootstrap overwrites an erased or corrupt primary; bail only if valid */
+        if (rc != 0 && boot_check_header_valid(state, BOOT_SLOT_PRIMARY)) {
 #else
         if (rc != 0) {
 #endif
