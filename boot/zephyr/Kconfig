@@ -114,6 +114,22 @@ config BOOT_X25519_PSA_DEPENDENCIES
 
 endif # BOOT_ENCRYPT_IMAGE
 
+config BOOT_EC384_PSA_DEPENDENCIES
+	bool
+	select PSA_WANT_ALG_ECDH
+	select PSA_WANT_ALG_HMAC
+	select PSA_WANT_ALG_HKDF
+	select PSA_WANT_ALG_CTR
+	select PSA_WANT_KEY_TYPE_ECC_KEY_PAIR_IMPORT
+	select PSA_WANT_KEY_TYPE_DERIVE
+	select PSA_WANT_KEY_TYPE_AES
+	select PSA_WANT_ECC_SECP_R1_384
+	help
+	  Dependencies for ECIES-P384 shared-key encryption. Mirrors
+	  BOOT_X25519_PSA_DEPENDENCIES with the NIST P-384 curve in place of
+	  Curve25519; the curve itself is already pulled in by the P-384
+	  signature type.
+
 config BOOT_ECDSA_PSA_DEPENDENCIES
 	bool
 	select PSA_WANT_ALG_ECDSA
@@ -364,7 +380,7 @@ config BOOT_SIGNATURE_TYPE_ECDSA_P384
 	select PSA_CRYPTO_C
 	select PSA_WANT_ALG_ECDSA
 	select MBEDTLS_ASN1_PARSE_C if MBEDTLS_BUILTIN && BOOT_ENCRYPT_IMAGE
-	select BOOT_X25519_PSA_DEPENDENCIES if BOOT_ENCRYPT_IMAGE
+	select BOOT_EC384_PSA_DEPENDENCIES if BOOT_ENCRYPT_IMAGE
 	select PSA_WANT_KEY_TYPE_ECC_PUBLIC_KEY
 	select PSA_WANT_ECC_SECP_R1_384
 	select PSA_WANT_ALG_SHA_384
@@ -786,7 +802,7 @@ config BOOT_ENCRYPT_IMAGE
 	select BOOT_ENCRYPT_RSA if BOOT_SIGNATURE_TYPE_RSA
 	select BOOT_ENCRYPT_EC256 if BOOT_SIGNATURE_TYPE_ECDSA_P256
 	select BOOT_ENCRYPT_X25519 if BOOT_SIGNATURE_TYPE_ED25519
-	select BOOT_ENCRYPT_X25519 if BOOT_SIGNATURE_TYPE_ECDSA_P384
+	select BOOT_ENCRYPT_EC384 if BOOT_SIGNATURE_TYPE_ECDSA_P384
 	depends on !SINGLE_APPLICATION_SLOT || MCUBOOT_SERIAL
 	help
 	  If y, images in the secondary slot can be encrypted and are decrypted
@@ -819,6 +835,11 @@ config BOOT_ENCRYPT_X25519
 	help
 	  Hidden option selecting x25519 encryption.
 
+config BOOT_ENCRYPT_EC384
+	bool
+	help
+	  Hidden option selecting ECIES-P384 encryption.
+
 if BOOT_ENCRYPT_IMAGE
 
 choice BOOT_ENCRYPT_ALG
@@ -835,10 +856,11 @@ endchoice # BOOT_ENCRYPT_ALG
 
 endif # BOOT_ENCRYPT_IMAGE
 
-if BOOT_ENCRYPT_X25519 && BOOT_USE_PSA_CRYPTO
+if (BOOT_ENCRYPT_X25519 || BOOT_ENCRYPT_EC384) && BOOT_USE_PSA_CRYPTO
 
 choice BOOT_HMAC_SHA
 	prompt "SHA used for HMAC and HKDF in encryption key exchange"
+	default BOOT_HMAC_SHA384 if BOOT_ENCRYPT_EC384
 	default BOOT_HMAC_SHA256
 	help
 	  HMAC/HKDF sha algorithm may be selected to synchronize sha
@@ -851,6 +873,15 @@ config BOOT_HMAC_SHA256
 	help
 	  This is default for ED25519.
 
+config BOOT_HMAC_SHA384
+	bool "Use SHA384 for HMAC/HKDF"
+	depends on BOOT_ENCRYPT_EC384
+	depends on BOOT_USE_PSA_CRYPTO
+	select BOOT_SOMETHING_USES_SHA384
+	help
+	  This is the default for ECIES-P384: it pairs the KDF and MAC hash
+	  with the curve, per CNSA 1.0.
+
 config BOOT_HMAC_SHA512
 	bool "Use SHA512 for HMAC/HKDF"
 	depends on BOOT_ENCRYPT_X25519
@@ -862,7 +893,7 @@ config BOOT_HMAC_SHA512
 
 endchoice # BOOT_HMAC_SHA
 
-endif # BOOT_ENCRYPT_X25519 && BOOT_USE_PSA_CRYPTO
+endif # (BOOT_ENCRYPT_X25519 || BOOT_ENCRYPT_EC384) && BOOT_USE_PSA_CRYPTO
 
 config BOOT_ENCRYPTION_KEY_FILE
 	string "Encryption key file"

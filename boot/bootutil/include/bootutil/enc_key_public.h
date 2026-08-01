@@ -72,6 +72,8 @@ extern "C" {
 
 #ifdef MCUBOOT_HMAC_SHA512
 #   define BOOT_HMAC_SIZE      64
+#elif defined(MCUBOOT_HMAC_SHA384)
+#   define BOOT_HMAC_SIZE      48
 #else
 #   define BOOT_HMAC_SIZE      32
 #endif
@@ -87,6 +89,15 @@ extern "C" {
 #   define EC_PRIVK_LEN        (32)
 #   define EC_SHARED_LEN       (32)
 #   define BOOT_ENC_TLV        IMAGE_TLV_ENC_EC256
+#elif defined(MCUBOOT_ENCRYPT_EC384)
+#   if defined(MCUBOOT_HMAC_SHA512)
+#       error "ECIES-P384 does not support HMAC-SHA512"
+#   endif
+/* Uncompressed X9.62 point: 0x04 || X || Y. */
+#   define EC_PUBK_LEN         (97)
+#   define EC_PRIVK_LEN        (48)
+#   define EC_SHARED_LEN       (48)
+#   define BOOT_ENC_TLV        IMAGE_TLV_ENC_EC384
 #elif defined(MCUBOOT_ENCRYPT_X25519)
 #   define EC_PUBK_LEN         (32)
 #   define EC_PRIVK_LEN        (32)

@@ -173,6 +173,11 @@
 #define MCUBOOT_ENCRYPT_X25519
 #endif
 
+#ifdef CONFIG_BOOT_ENCRYPT_EC384
+#define MCUBOOT_ENC_IMAGES
+#define MCUBOOT_ENCRYPT_EC384
+#endif
+
 #ifdef CONFIG_BOOT_ENCRYPT_ALG_AES_128
 #define MCUBOOT_AES_128
 #endif
@@ -186,6 +191,10 @@
  */
 #ifdef CONFIG_BOOT_HMAC_SHA512
 #define MCUBOOT_HMAC_SHA512
+#endif
+
+#ifdef CONFIG_BOOT_HMAC_SHA384
+#define MCUBOOT_HMAC_SHA384
 #endif
 
 /* Turn off check of public key hash against compiled in key
