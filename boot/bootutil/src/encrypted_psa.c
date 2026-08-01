@@ -29,6 +29,8 @@ BOOT_LOG_MODULE_REGISTER(mcuboot_psa_enc);
 
 #if defined(MCUBOOT_HMAC_SHA512)
 #define PSA_HMAC_HKDF_SHA PSA_ALG_SHA_512
+#elif defined(MCUBOOT_HMAC_SHA384)
+#define PSA_HMAC_HKDF_SHA PSA_ALG_SHA_384
 #else
 #define PSA_HMAC_HKDF_SHA PSA_ALG_SHA_256
 #endif
@@ -36,9 +38,17 @@ BOOT_LOG_MODULE_REGISTER(mcuboot_psa_enc);
 #if defined(MCUBOOT_ENCRYPT_EC256)
 #define NUM_ECC_BYTES (256 / 8)
 static const uint8_t ec_pubkey_oid[] = MBEDTLS_OID_EC_ALG_UNRESTRICTED;
-static const uint8_t ec_secp256r1_oid[] = MBEDTLS_OID_EC_GRP_SECP256R1;
+static const uint8_t ec_curve_oid[] = MBEDTLS_OID_EC_GRP_SECP256R1;
 #define ECC_FAMILY PSA_ECC_FAMILY_SECP_R1
 #endif /* defined(MCUBOOT_ENCRYPT_EC256) */
+#if defined(MCUBOOT_ENCRYPT_EC384)
+#define NUM_ECC_BYTES (384 / 8)
+/* TF-PSA-Crypto's oid.h drops the EC leaf OIDs, so build them from the arc
+ * prefixes it does keep: ecPublicKey 1.2.840.10045.2.1, secp384r1 1.3.132.0.34. */
+static const uint8_t ec_pubkey_oid[] = MBEDTLS_OID_ANSI_X9_62 "\x02\x01";
+static const uint8_t ec_curve_oid[] = MBEDTLS_OID_CERTICOM "\x00\x22";
+#define ECC_FAMILY PSA_ECC_FAMILY_SECP_R1
+#endif /* defined(MCUBOOT_ENCRYPT_EC384) */
 #if defined(MCUBOOT_ENCRYPT_X25519)
 #define X25519_OID "\x6e"
 static const uint8_t ec_pubkey_oid[] = MBEDTLS_OID_ISO_IDENTIFIED_ORG \
@@ -52,15 +62,17 @@ static const uint8_t ec_pubkey_oid[] = MBEDTLS_OID_ISO_IDENTIFIED_ORG \
 #define HKDF_AES_KEY_SIZE   (BOOT_ENC_KEY_SIZE)
 /* MAC feed */
 #define HKDF_MAC_FEED_INDEX (HKDF_AES_KEY_INDEX + HKDF_AES_KEY_SIZE)
-#if !defined(MCUBOOT_HMAC_SHA512)
-#define HKDF_MAC_FEED_SIZE  (32)
-#else
+#if defined(MCUBOOT_HMAC_SHA512)
 #define HKDF_MAC_FEED_SIZE  (64)
+#elif defined(MCUBOOT_HMAC_SHA384)
+#define HKDF_MAC_FEED_SIZE  (48)
+#else
+#define HKDF_MAC_FEED_SIZE  (32)
 #endif
 /* Total size */
 #define HKDF_SIZE           (HKDF_AES_KEY_SIZE + HKDF_MAC_FEED_SIZE)
 
-#if defined(MCUBOOT_ENCRYPT_EC256)
+#if defined(MCUBOOT_ENCRYPT_EC256) || defined(MCUBOOT_ENCRYPT_EC384)
 /* Fixme: This duplicates code from encrypted.c and depends on mbedtls */
 
 /*
@@ -97,8 +109,8 @@ parse_priv_enckey(uint8_t **p, uint8_t *end, uint8_t *private_key)
         memcmp(alg.ASN1_CONTEXT_MEMBER(p), ec_pubkey_oid, sizeof(ec_pubkey_oid) - 1)) {
         return -1;
     }
-    if (param.ASN1_CONTEXT_MEMBER(len) != sizeof(ec_secp256r1_oid) - 1 ||
-        memcmp(param.ASN1_CONTEXT_MEMBER(p), ec_secp256r1_oid, sizeof(ec_secp256r1_oid) - 1)) {
+    if (param.ASN1_CONTEXT_MEMBER(len) != sizeof(ec_curve_oid) - 1 ||
+        memcmp(param.ASN1_CONTEXT_MEMBER(p), ec_curve_oid, sizeof(ec_curve_oid) - 1)) {
         return -1;
     }
 
@@ -134,7 +146,7 @@ parse_priv_enckey(uint8_t **p, uint8_t *end, uint8_t *private_key)
 
     return 0;
 }
-#endif /* defined(MCUBOOT_ENCRYPT_EC256) */
+#endif /* defined(MCUBOOT_ENCRYPT_EC256) || defined(MCUBOOT_ENCRYPT_EC384) */
 
 #if defined(MCUBOOT_ENCRYPT_X25519)
 /* Fixme: This duplicates code from encrypted.c and depends on mbedtls */
