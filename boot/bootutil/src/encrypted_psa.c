@@ -110,7 +110,7 @@ parse_priv_enckey(uint8_t **p, uint8_t *end, uint8_t *private_key)
         return -1;
     }
     if (param.ASN1_CONTEXT_MEMBER(len) != sizeof(ec_curve_oid) - 1 ||
-        memcmp(param.ASN1_CONTEXT_MEMBER(p), ec_curve_oid, sizeof(ec_curve_oid) - 1)) {
+        memcmp(param.ASN1_CONTEXT_MEMBER(p), ec_curve_oid, sizeof(ec_curve_oid) - 1) != 0) {
         return -1;
     }
 
