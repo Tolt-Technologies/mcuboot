@@ -80,11 +80,6 @@
 #ifdef CONFIG_MCUBOOT_SERIAL
 #include "boot_serial/boot_serial.h"
 #include "serial_adapter/serial_adapter.h"
-
-const struct boot_uart_funcs boot_funcs = {
-    .read = console_read,
-    .write = console_write
-};
 #endif
 
 #if defined(CONFIG_BOOT_USB_DFU_WAIT) || defined(CONFIG_BOOT_USB_DFU_GPIO)
@@ -137,6 +132,16 @@ K_SEM_DEFINE(boot_log_sem, 0, 1);
 #endif
 
 BOOT_LOG_MODULE_REGISTER(mcuboot);
+
+#ifdef CONFIG_MCUBOOT_SERIAL
+/* Defined here rather than beside its includes above: a definition before an
+ * #include puts every later one in violation of MISRA 20.1, which is what the
+ * conditional USB includes were being marked for. */
+static const struct boot_uart_funcs boot_funcs = {
+    .read = console_read,
+    .write = console_write
+};
+#endif
 
 void os_heap_init(void);
 
@@ -211,7 +216,7 @@ static void do_boot(struct boot_rsp *rsp)
          * (lazy init -- only initialized when recovery is triggered).
          * Any other error indicates a real problem.
          */
-        if (usbd_rc != 0 && usbd_rc != -EALREADY) {
+        if ((usbd_rc != 0) && (usbd_rc != -EALREADY)) {
             BOOT_LOG_WRN("USB disable failed: %d", usbd_rc);
         }
     }
@@ -716,6 +721,15 @@ int main(void)
         }
 #endif
 
+        FIH_PANIC;
+    }
+
+    /* boot_go() reports success only with a header; everything below
+     * dereferences it, including do_boot(). Enforced rather than assumed:
+     * a null here would fault in the jump, past any diagnostic.
+     */
+    if (rsp.br_hdr == NULL) {
+        BOOT_LOG_ERR("Bootable image reported with no header");
         FIH_PANIC;
     }
 
