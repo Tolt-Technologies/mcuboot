@@ -195,6 +195,14 @@ static const uint16_t allowed_unprot_tlvs[] = {
 };
 #endif
 
+/* The rejection diagnostics at the end of bootutil_img_validate() are the only
+ * readers of these flags, and the simulator builds without them. */
+#if defined(__BOOTSIM__)
+#define BOOT_REJECT_DIAG_SET(flag) ((void)0)
+#else
+#define BOOT_REJECT_DIAG_SET(flag) ((flag) = true)
+#endif
+
 /*
  * Verify the integrity of the image.
  * Return non-zero if image could not be validated/does not validate.
@@ -218,7 +226,9 @@ bootutil_img_validate(struct boot_loader_state *state,
     uint32_t img_sz;
 #ifdef EXPECTED_SIG_TLV
     FIH_DECLARE(valid_signature, FIH_FAILURE);
+#if !defined(__BOOTSIM__)
     bool sig_tlv_seen = false;
+#endif
 #ifndef MCUBOOT_BUILTIN_KEY
     int key_id = -1;
 #else
@@ -230,7 +240,7 @@ bootutil_img_validate(struct boot_loader_state *state,
 #ifdef MCUBOOT_HW_KEY
     uint8_t key_buf[KEY_BUF_SIZE];
 #endif
-#ifdef EXPECTED_KEY_TLV
+#if defined(EXPECTED_KEY_TLV) && !defined(__BOOTSIM__)
     bool key_tlv_seen = false;
     bool key_tlv_matched = false;
 #endif
@@ -372,7 +382,7 @@ bootutil_img_validate(struct boot_loader_state *state,
         case EXPECTED_KEY_TLV:
         {
             BOOT_LOG_DBG("bootutil_img_validate: EXPECTED_KEY_TLV == %d", EXPECTED_KEY_TLV);
-            key_tlv_seen = true;
+            BOOT_REJECT_DIAG_SET(key_tlv_seen);
             /*
              * Determine which key we should be checking.
              */
@@ -394,7 +404,7 @@ bootutil_img_validate(struct boot_loader_state *state,
             key_id = bootutil_find_key(image_index, key_buf, len);
 #endif /* !MCUBOOT_HW_KEY */
             if (key_id >= 0) {
-                key_tlv_matched = true;
+                BOOT_REJECT_DIAG_SET(key_tlv_matched);
             }
             /*
              * The key may not be found, which is acceptable.  There
@@ -407,7 +417,7 @@ bootutil_img_validate(struct boot_loader_state *state,
         case EXPECTED_SIG_TLV:
         {
             BOOT_LOG_DBG("bootutil_img_validate: EXPECTED_SIG_TLV == %d", EXPECTED_SIG_TLV);
-            sig_tlv_seen = true;
+            BOOT_REJECT_DIAG_SET(sig_tlv_seen);
             /* Ignore this signature if it is out of bounds. */
             if (key_id < 0 || key_id >= bootutil_key_cnt) {
                 key_id = -1;
