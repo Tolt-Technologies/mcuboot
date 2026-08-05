@@ -137,6 +137,7 @@ BOOT_LOG_MODULE_REGISTER(mcuboot);
 /* Defined here rather than beside its includes above: a definition before an
  * #include puts every later one in violation of MISRA 20.1, which is what the
  * conditional USB includes were being marked for. */
+/* cppcheck-suppress misra-c2012-8.9 ; two callers under independent Kconfig guards, so block scope holds only in this configuration */
 static const struct boot_uart_funcs boot_funcs = {
     .read = console_read,
     .write = console_write
@@ -551,7 +552,9 @@ static void boot_serial_enter()
 
 int main(void)
 {
-    struct boot_rsp rsp;
+    /* Zero-initialised so the header check below tests a known value: the
+     * analyser cannot see through FIH_CALL that boot_go() fills this. */
+    struct boot_rsp rsp = {0};
     int rc;
 #if defined(CONFIG_BOOT_USB_DFU_GPIO) || defined(CONFIG_BOOT_USB_DFU_WAIT)
     bool usb_dfu_requested = false;

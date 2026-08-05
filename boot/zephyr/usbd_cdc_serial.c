@@ -25,56 +25,22 @@ BOOT_LOG_MODULE_DECLARE(mcuboot);
 BUILD_ASSERT((APP_VERSION_MAJOR <= 99) && (APP_VERSION_MINOR <= 99),
 	     "bcdDevice BCD encoding requires major/minor <= 99");
 
-/* cppcheck-suppress misra-c2012-10.1 ; constant inside USBD_DEVICE_DEFINE */
-/* cppcheck-suppress misra-c2012-12.1 ; precedence inside USBD_DEVICE_DEFINE */
-/* cppcheck-suppress misra-c2012-12.2 ; shift width inside USBD_DEVICE_DEFINE */
 USBD_DEVICE_DEFINE(boot_usbd,
 		   DEVICE_DT_GET(DT_NODELABEL(zephyr_udc0)),
 		   CONFIG_BOOT_SERIAL_CDC_ACM_VID,
 		   CONFIG_BOOT_SERIAL_CDC_ACM_PID);
 
-/* cppcheck-suppress misra-c2012-8.9 ; USBD_DESC_LANG_DEFINE object is collected by the linker */
-USBD_DESC_LANG_DEFINE(boot_usbd_lang);
-/* cppcheck-suppress misra-c2012-8.9 ; USBD_DESC_MANUFACTURER_DEFINE object is collected by the linker */
-/* cppcheck-suppress misra-c2012-10.4 ; constant inside USBD_DESC_MANUFACTURER_DEFINE */
-USBD_DESC_MANUFACTURER_DEFINE(boot_usbd_mfr,
-			      CONFIG_BOOT_SERIAL_CDC_ACM_MANUFACTURER_STRING);
-/* cppcheck-suppress misra-c2012-8.9 ; USBD_DESC_PRODUCT_DEFINE object is collected by the linker */
-/* cppcheck-suppress misra-c2012-10.4 ; constant inside USBD_DESC_PRODUCT_DEFINE */
-USBD_DESC_PRODUCT_DEFINE(boot_usbd_product,
-			 CONFIG_BOOT_SERIAL_CDC_ACM_PRODUCT_STRING);
-/* cppcheck-suppress misra-c2012-8.9 ; USBD_DESC_SERIAL_NUMBER_DEFINE object is collected by the linker */
-IF_ENABLED(CONFIG_HWINFO, (USBD_DESC_SERIAL_NUMBER_DEFINE(boot_usbd_sn)));
-
-/* Selected by the preprocessor rather than a ternary: the conditional
- * expression mixes essential types and then narrows, and casting a composite
- * to fix that trades one rule for another. */
+/* Selected by the preprocessor rather than a ternary, which would mix
+ * essential types and then narrow. */
 #if defined(CONFIG_BOOT_SERIAL_CDC_ACM_SELF_POWERED)
-static const uint8_t boot_usbd_attributes = USB_SCD_SELF_POWERED;
+#define BOOT_USBD_ATTRIBUTES   USB_SCD_SELF_POWERED
+#define BOOT_USBD_SELF_POWERED true
 #else
-static const uint8_t boot_usbd_attributes = 0U;
+#define BOOT_USBD_ATTRIBUTES   0U
+#define BOOT_USBD_SELF_POWERED false
 #endif
 
-/* cppcheck-suppress misra-c2012-10.4 ; constant inside USBD_DESC_CONFIG_DEFINE */
-USBD_DESC_CONFIG_DEFINE(boot_usbd_fs_cfg_desc, "FS Configuration");
-/* cppcheck-suppress misra-c2012-8.9 ; USBD_CONFIGURATION_DEFINE object is collected by the linker */
-USBD_CONFIGURATION_DEFINE(boot_usbd_fs_config,
-			  boot_usbd_attributes,
-			  CONFIG_BOOT_SERIAL_CDC_ACM_MAX_POWER,
-			  &boot_usbd_fs_cfg_desc);
-
-#if USBD_SUPPORTS_HIGH_SPEED
-USBD_DESC_CONFIG_DEFINE(boot_usbd_hs_cfg_desc, "HS Configuration");
-USBD_CONFIGURATION_DEFINE(boot_usbd_hs_config,
-			  boot_usbd_attributes,
-			  CONFIG_BOOT_SERIAL_CDC_ACM_MAX_POWER,
-			  &boot_usbd_hs_cfg_desc);
-#endif
-
-/* cppcheck-suppress misra-c2012-9.2 ; K_SEM_DEFINE's initialiser is Zephyr's */
-/* cppcheck-suppress misra-c2012-10.4 ; constant inside K_SEM_DEFINE */
-/* cppcheck-suppress misra-c2012-12.1 ; precedence inside K_SEM_DEFINE */
-K_SEM_DEFINE(boot_cdc_acm_ready, 0, 1);
+K_SEM_DEFINE(boot_cdc_acm_ready, 0U, 1U);
 
 static void boot_usbd_msg_cb(struct usbd_context *const ctx,
 			     const struct usbd_msg *const msg)
@@ -88,6 +54,11 @@ static void boot_usbd_msg_cb(struct usbd_context *const ctx,
 
 static int boot_usbd_register_fs(void)
 {
+	USBD_DESC_CONFIG_DEFINE(boot_usbd_fs_cfg_desc, "FS Configuration");
+	USBD_CONFIGURATION_DEFINE(boot_usbd_fs_config,
+				  BOOT_USBD_ATTRIBUTES,
+				  CONFIG_BOOT_SERIAL_CDC_ACM_MAX_POWER,
+				  &boot_usbd_fs_cfg_desc);
 	int err;
 
 	err = usbd_add_configuration(&boot_usbd, USBD_SPEED_FS,
@@ -115,6 +86,11 @@ static int boot_usbd_register_fs(void)
 #if USBD_SUPPORTS_HIGH_SPEED
 static int boot_usbd_register_hs(void)
 {
+	USBD_DESC_CONFIG_DEFINE(boot_usbd_hs_cfg_desc, "HS Configuration");
+	USBD_CONFIGURATION_DEFINE(boot_usbd_hs_config,
+				  BOOT_USBD_ATTRIBUTES,
+				  CONFIG_BOOT_SERIAL_CDC_ACM_MAX_POWER,
+				  &boot_usbd_hs_cfg_desc);
 	int err;
 
 	err = usbd_add_configuration(&boot_usbd, USBD_SPEED_HS,
@@ -142,6 +118,12 @@ static int boot_usbd_register_hs(void)
 
 int boot_usb_cdc_serial_init(void)
 {
+	USBD_DESC_LANG_DEFINE(boot_usbd_lang);
+	USBD_DESC_MANUFACTURER_DEFINE(boot_usbd_mfr,
+				      CONFIG_BOOT_SERIAL_CDC_ACM_MANUFACTURER_STRING);
+	USBD_DESC_PRODUCT_DEFINE(boot_usbd_product,
+				 CONFIG_BOOT_SERIAL_CDC_ACM_PRODUCT_STRING);
+	IF_ENABLED(CONFIG_HWINFO, (USBD_DESC_SERIAL_NUMBER_DEFINE(boot_usbd_sn);))
 	int err;
 	unsigned int bcd_device;
 
@@ -189,8 +171,7 @@ int boot_usb_cdc_serial_init(void)
 		return err;
 	}
 
-	usbd_self_powered(&boot_usbd,
-			  boot_usbd_attributes & USB_SCD_SELF_POWERED);
+	usbd_self_powered(&boot_usbd, BOOT_USBD_SELF_POWERED);
 
 	bcd_device = BOOT_USBD_BCD_DEVICE;
 	err = usbd_device_set_bcd_device(&boot_usbd, (uint16_t)bcd_device);
