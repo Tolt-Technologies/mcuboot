@@ -37,16 +37,10 @@ BOOT_LOG_MODULE_REGISTER(mcuboot_psa_enc);
 
 #if defined(MCUBOOT_ENCRYPT_EC256)
 #define NUM_ECC_BYTES (256 / 8)
-static const uint8_t ec_pubkey_oid[] = MBEDTLS_OID_EC_ALG_UNRESTRICTED;
-static const uint8_t ec_curve_oid[] = MBEDTLS_OID_EC_GRP_SECP256R1;
 #define ECC_FAMILY PSA_ECC_FAMILY_SECP_R1
 #endif /* defined(MCUBOOT_ENCRYPT_EC256) */
 #if defined(MCUBOOT_ENCRYPT_EC384)
 #define NUM_ECC_BYTES (384 / 8)
-/* TF-PSA-Crypto's oid.h drops the EC leaf OIDs, so build them from the arc
- * prefixes it does keep: ecPublicKey 1.2.840.10045.2.1, secp384r1 1.3.132.0.34. */
-static const uint8_t ec_pubkey_oid[] = MBEDTLS_OID_ANSI_X9_62 "\x02\x01";
-static const uint8_t ec_curve_oid[] = MBEDTLS_OID_CERTICOM "\x00\x22";
 #define ECC_FAMILY PSA_ECC_FAMILY_SECP_R1
 #endif /* defined(MCUBOOT_ENCRYPT_EC384) */
 #if defined(MCUBOOT_ENCRYPT_X25519)
@@ -82,6 +76,19 @@ static const uint8_t ec_pubkey_oid[] = MBEDTLS_OID_ISO_IDENTIFIED_ORG \
 static int
 parse_priv_enckey(uint8_t **p, uint8_t *end, uint8_t *private_key)
 {
+    /* Block scope: only this parser names them, and the EC256 and EC384
+     * variants are mutually exclusive, so no configuration has two readers.
+     * TF-PSA-Crypto's oid.h drops the EC leaf OIDs, so the P-384 pair is built
+     * from the arc prefixes it does keep: ecPublicKey 1.2.840.10045.2.1,
+     * secp384r1 1.3.132.0.34.
+     */
+#if defined(MCUBOOT_ENCRYPT_EC256)
+    static const uint8_t ec_pubkey_oid[] = MBEDTLS_OID_EC_ALG_UNRESTRICTED;
+    static const uint8_t ec_curve_oid[] = MBEDTLS_OID_EC_GRP_SECP256R1;
+#else
+    static const uint8_t ec_pubkey_oid[] = MBEDTLS_OID_ANSI_X9_62 "\x02\x01";
+    static const uint8_t ec_curve_oid[] = MBEDTLS_OID_CERTICOM "\x00\x22";
+#endif
     size_t len;
     int version;
     mbedtls_asn1_buf alg;
@@ -109,8 +116,8 @@ parse_priv_enckey(uint8_t **p, uint8_t *end, uint8_t *private_key)
         memcmp(alg.ASN1_CONTEXT_MEMBER(p), ec_pubkey_oid, sizeof(ec_pubkey_oid) - 1)) {
         return -1;
     }
-    if (param.ASN1_CONTEXT_MEMBER(len) != sizeof(ec_curve_oid) - 1 ||
-        memcmp(param.ASN1_CONTEXT_MEMBER(p), ec_curve_oid, sizeof(ec_curve_oid) - 1) != 0) {
+    if ((param.ASN1_CONTEXT_MEMBER(len) != (sizeof(ec_curve_oid) - 1U)) ||
+        (memcmp(param.ASN1_CONTEXT_MEMBER(p), ec_curve_oid, sizeof(ec_curve_oid) - 1U) != 0)) {
         return -1;
     }
 

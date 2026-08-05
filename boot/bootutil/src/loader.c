@@ -1497,7 +1497,7 @@ boot_prepare_image_for_update(struct boot_loader_state *state,
         rc = boot_read_image_headers(state, !boot_status_is_reset(bs), bs);
 #ifdef MCUBOOT_BOOTSTRAP
         /* Bootstrap overwrites an erased or corrupt primary; bail only if valid */
-        if (rc != 0 && boot_check_header_valid(state, BOOT_SLOT_PRIMARY)) {
+        if ((rc != 0) && boot_check_header_valid(state, BOOT_SLOT_PRIMARY)) {
 #else
         if (rc != 0) {
 #endif
@@ -1579,14 +1579,16 @@ boot_prepare_image_for_update(struct boot_loader_state *state,
              * (re-)bootstrapped from the secondary, which is itself validated
              * below before any copy; a structurally valid primary boots as-is.
              */
-            if (BOOT_SWAP_TYPE(state) == BOOT_SWAP_TYPE_NONE &&
+            /* cppcheck-suppress misra-c2012-10.4 ; BOOT_SWAP_TYPE and BOOT_SWAP_TYPE_NONE are upstream's */
+            if ((BOOT_SWAP_TYPE(state) == BOOT_SWAP_TYPE_NONE) &&
                 !boot_check_header_valid(state, BOOT_SLOT_PRIMARY)) {
 
                 rc = (boot_img_hdr(state, BOOT_SLOT_SECONDARY)->ih_magic == IMAGE_MAGIC) ? 1: 0;
+                /* cppcheck-suppress misra-c2012-14.4 ; FIH_CALL's control flow is MCUboot's macro */
                 FIH_CALL(boot_validate_slot, fih_rc,
                          state, BOOT_SLOT_SECONDARY, bs, 0);
 
-                if (rc == 1 && FIH_EQ(fih_rc, FIH_SUCCESS)) {
+                if ((rc == 1) && FIH_EQ(fih_rc, FIH_SUCCESS)) {
                     /* Set swap type to REVERT to overwrite the primary
                      * slot with the image contained in secondary slot
                      * and to trigger the explicit setting of the

@@ -16,7 +16,8 @@
 
 #ifdef MCUBOOT_ENC_IMAGES
 
-BOOT_LOG_MODULE_REGISTER(serial_encryption);
+/* cppcheck-suppress misra-c2012-8.9 ; log_const_* is collected by the linker, not by this unit */
+BOOT_LOG_MODULE_REGISTER(serial_encryption); /* NOLINT(misc-use-internal-linkage) */
 
 fih_ret
 boot_image_validate_encrypted(struct boot_loader_state *state,
