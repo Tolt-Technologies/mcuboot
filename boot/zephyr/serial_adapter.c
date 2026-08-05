@@ -242,12 +242,12 @@ boot_uart_fifo_init(void)
 	int rc;
 
 	rc = boot_usb_cdc_serial_init();
-	if (rc) {
+	if (0 != rc) {
 		return (-1);
 	}
 
 	rc = usbd_enable(boot_usb_cdc_serial_get_context());
-	if (rc) {
+	if (0 != rc) {
 		return (-1);
 	}
 
@@ -265,7 +265,10 @@ boot_uart_fifo_init(void)
 		return (-1);
 	}
 
-	uart_irq_callback_set(uart_dev, boot_uart_fifo_callback);
+	rc = uart_irq_callback_set(uart_dev, boot_uart_fifo_callback);
+	if (0 != rc) {
+		return (-1);
+	}
 	cur = 0;
 	uart_irq_rx_enable(uart_dev);
 

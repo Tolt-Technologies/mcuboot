@@ -57,6 +57,7 @@ bootutil_img_hash(struct boot_loader_state *state,
     uint32_t blk_off;
     uint32_t tlv_off;
     int rc;
+    int drop_rc;
 #if !defined(MCUBOOT_HASH_STORAGE_DIRECTLY)
     uint32_t off;
     uint32_t blk_sz;
@@ -123,7 +124,10 @@ bootutil_img_hash(struct boot_loader_state *state,
         rc = bootutil_sha_update(&sha_ctx, seed, seed_len);
         if (rc != 0) {
             BOOT_LOG_WRN("bootutil_sha_update(seed) failed (rc=%d)", rc);
-            bootutil_sha_drop(&sha_ctx);
+            drop_rc = bootutil_sha_drop(&sha_ctx);
+            if (drop_rc != 0) {
+                BOOT_LOG_WRN("bootutil_sha_drop failed (rc=%d)", drop_rc);
+            }
             return rc;
         }
     }
@@ -217,7 +221,10 @@ bootutil_img_hash(struct boot_loader_state *state,
         if (rc != 0) {
             BOOT_LOG_WRN("bootutil_sha_update(blk) failed (rc=%d, off=%" PRIu32 ")",
                          rc, off);
-            bootutil_sha_drop(&sha_ctx);
+            drop_rc = bootutil_sha_drop(&sha_ctx);
+            if (drop_rc != 0) {
+                BOOT_LOG_WRN("bootutil_sha_drop failed (rc=%d)", drop_rc);
+            }
             return rc;
         }
     }
@@ -226,11 +233,17 @@ bootutil_img_hash(struct boot_loader_state *state,
     rc = bootutil_sha_finish(&sha_ctx, hash_result);
     if (rc != 0) {
         BOOT_LOG_WRN("bootutil_sha_finish failed (rc=%d)", rc);
-        bootutil_sha_drop(&sha_ctx);
+        drop_rc = bootutil_sha_drop(&sha_ctx);
+        if (drop_rc != 0) {
+            BOOT_LOG_WRN("bootutil_sha_drop failed (rc=%d)", drop_rc);
+        }
         return rc;
     }
-    bootutil_sha_drop(&sha_ctx);
+    rc = bootutil_sha_drop(&sha_ctx);
+    if (rc != 0) {
+        BOOT_LOG_WRN("bootutil_sha_drop failed (rc=%d)", rc);
+    }
 
-    return 0;
+    return rc;
 }
 #endif /* !MCUBOOT_SIGN_PURE */
