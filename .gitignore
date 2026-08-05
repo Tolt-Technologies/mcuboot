@@ -37,3 +37,6 @@ compile_commands.json
 
 # The target directory from Rust development
 /target/
+
+# cppcheck writes <source>.<pid>.dump next to each analysed file
+*.dump

@@ -39,7 +39,18 @@ extern unsigned int rsa_pub_key_len;
 extern const unsigned char ecdsa_pub_key[];
 extern unsigned int ecdsa_pub_key_len;
 #elif defined(MCUBOOT_SIGN_EC384)
-extern const unsigned char ecdsap384_pub_key[];
+/*
+ * Sized rather than incomplete: the encoding is fixed by the curve, not by the
+ * key. A secp384r1 SubjectPublicKeyInfo (RFC 5480) is a 20-byte SEQUENCE and
+ * AlgorithmIdentifier, a 3-byte BIT STRING header, then the uncompressed point
+ * 0x04 || X || Y with X and Y one field element each. Derived here so it
+ * cannot drift from a restated literal; imgtool emits 120 bytes to match.
+ */
+#define EC384_FIELD_LEN     48U
+#define EC384_POINT_LEN     (1U + (2U * EC384_FIELD_LEN))
+#define EC384_SPKI_HDR_LEN  (20U + 3U)
+#define EC384_PUB_KEY_LEN   (EC384_SPKI_HDR_LEN + EC384_POINT_LEN)
+extern const unsigned char ecdsap384_pub_key[EC384_PUB_KEY_LEN];
 extern unsigned int ecdsap384_pub_key_len;
 #elif defined(MCUBOOT_SIGN_ED25519)
 extern const unsigned char ed25519_pub_key[];
