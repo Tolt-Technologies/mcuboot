@@ -254,7 +254,11 @@ boot_uart_fifo_init(void)
 	/* Feed WDT while waiting for USB host to open the serial port.
 	 * Without this, the hardware watchdog fires before the serial
 	 * recovery loop (which feeds the WDT) is reached. */
-	while (k_sem_take(&boot_cdc_acm_ready, K_MSEC(5000)) != 0) {
+	/* Bound the timeout to a name: cppcheck cannot type the .ticks
+	 * designator of K_MSEC's compound literal inside a loop condition. */
+	const k_timeout_t cdc_wait = K_MSEC(5000);
+
+	while (k_sem_take(&boot_cdc_acm_ready, cdc_wait) != 0) {
 #if CONFIG_BOOT_WATCHDOG_FEED
 		MCUBOOT_WATCHDOG_FEED();
 #endif
