@@ -116,7 +116,8 @@ static int boot_usbd_register_hs(void)
 }
 #endif
 
-int boot_usb_cdc_serial_init(void)
+/* Language, manufacturer, product and — with CONFIG_HWINFO — serial number. */
+static int boot_usbd_add_descriptors(void)
 {
 	USBD_DESC_LANG_DEFINE(boot_usbd_lang);
 	USBD_DESC_MANUFACTURER_DEFINE(boot_usbd_mfr,
@@ -125,7 +126,6 @@ int boot_usb_cdc_serial_init(void)
 				 CONFIG_BOOT_SERIAL_CDC_ACM_PRODUCT_STRING);
 	IF_ENABLED(CONFIG_HWINFO, (USBD_DESC_SERIAL_NUMBER_DEFINE(boot_usbd_sn);))
 	int err;
-	unsigned int bcd_device;
 
 	err = usbd_add_descriptor(&boot_usbd, &boot_usbd_lang);
 	if (0 != err) {
@@ -154,6 +154,18 @@ int boot_usb_cdc_serial_init(void)
 			return err;
 		}
 	))
+
+	return 0;
+}
+
+int boot_usb_cdc_serial_init(void)
+{
+	unsigned int bcd_device;
+	int err = boot_usbd_add_descriptors();
+
+	if (0 != err) {
+		return err;
+	}
 
 #if USBD_SUPPORTS_HIGH_SPEED
 	if (usbd_caps_speed(&boot_usbd) == USBD_SPEED_HS) {
