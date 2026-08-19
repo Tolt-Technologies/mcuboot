@@ -41,6 +41,7 @@ USBD_DEVICE_DEFINE(boot_usbd,
 #endif
 
 K_SEM_DEFINE(boot_cdc_acm_ready, 0U, 1U);
+K_SEM_DEFINE(boot_usbd_vbus_ready, 0U, 1U);
 
 static void boot_usbd_msg_cb(struct usbd_context *const ctx,
 			     const struct usbd_msg *const msg)
@@ -49,6 +50,10 @@ static void boot_usbd_msg_cb(struct usbd_context *const ctx,
 
 	if (msg->type == USBD_MSG_CDC_ACM_CONTROL_LINE_STATE) {
 		k_sem_give(&boot_cdc_acm_ready);
+	}
+
+	if (msg->type == USBD_MSG_VBUS_READY) {
+		k_sem_give(&boot_usbd_vbus_ready);
 	}
 }
 
