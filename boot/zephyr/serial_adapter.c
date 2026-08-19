@@ -43,6 +43,9 @@
 
 #if defined(CONFIG_BOOT_SERIAL_CDC_ACM)
 #include "usbd_cdc_serial.h"
+/* Bound on the VBUS_READY wait; past it the enable proceeds unguarded, which
+ * is the behaviour a board with no VBUS detection needs anyway. */
+#define BOOT_USBD_VBUS_WAIT_MS 1000
 #endif
 
 BOOT_LOG_MODULE_REGISTER(serial_adapter);
@@ -244,6 +247,16 @@ boot_uart_fifo_init(void)
 	rc = boot_usb_cdc_serial_init();
 	if (0 != rc) {
 		return (-1);
+	}
+
+	/* Enable only after the stack reports VBUS. Enabling ahead of that
+	 * event races it, and the device then never attaches to the host. */
+	if (usbd_can_detect_vbus(boot_usb_cdc_serial_get_context())) {
+		if (k_sem_take(&boot_usbd_vbus_ready,
+			       K_MSEC(BOOT_USBD_VBUS_WAIT_MS)) != 0) {
+			BOOT_LOG_WRN("No VBUS_READY in %d ms; enabling anyway",
+				     BOOT_USBD_VBUS_WAIT_MS);
+		}
 	}
 
 	rc = usbd_enable(boot_usb_cdc_serial_get_context());

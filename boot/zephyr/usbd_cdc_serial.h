@@ -13,5 +13,6 @@ struct usbd_context;
 int boot_usb_cdc_serial_init(void);
 struct usbd_context *boot_usb_cdc_serial_get_context(void);
 extern struct k_sem boot_cdc_acm_ready;
+extern struct k_sem boot_usbd_vbus_ready;
 
 #endif /* BOOT_USBD_CDC_SERIAL_H */
