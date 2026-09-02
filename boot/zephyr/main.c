@@ -198,7 +198,7 @@ static void do_boot(struct boot_rsp *rsp)
     /* Disable the USB to prevent it from firing interrupts */
     usb_disable();
 #endif
-#ifdef CONFIG_USB_DEVICE_STACK_NEXT
+#ifdef CONFIG_BOOT_SERIAL_CDC_ACM
     {
         int usbd_rc;
 
