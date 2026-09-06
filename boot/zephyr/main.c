@@ -718,6 +718,22 @@ int main(void)
     mcuboot_status_change(MCUBOOT_STATUS_BOOTABLE_IMAGE_FOUND);
 
     ZEPHYR_BOOT_LOG_STOP();
+
+#if defined(CONFIG_LOG_BACKEND_SWO)
+    /* Wait for ITM to finish transmitting before jumping to app.
+     * ZEPHYR_BOOT_LOG_STOP drains the log buffer to the ITM FIFO,
+     * but the TPIU may still be clocking out bytes on the SWO pin.
+     * Without this, the app reinitializes ITM and discards in-flight data.
+     */
+    while (ITM->TCR & ITM_TCR_BUSY_Msk) {
+    }
+    /* ITM BUSY only means the formatter is done — the TPIU output buffer
+     * still needs time to clock bytes out at the SWO baud rate.
+     * At 4 MHz NRZ, ~200 bytes (a few log lines) takes ~500 µs.
+     */
+    k_busy_wait(1000);
+#endif
+
     do_boot(&rsp);
 
     mcuboot_status_change(MCUBOOT_STATUS_BOOT_FAILED);
