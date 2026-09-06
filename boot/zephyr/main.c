@@ -126,7 +126,13 @@ K_SEM_DEFINE(boot_log_sem, 0, 1);
 
 /* log processing need to be initalized by the application */
 #define ZEPHYR_BOOT_LOG_START() zephyr_boot_log_start()
+#if defined(CONFIG_LOG_BACKEND_UART)
 #define ZEPHYR_BOOT_LOG_STOP() zephyr_boot_log_stop()
+#else
+/* Keep logging alive during serial recovery when the log backend (e.g. SWO,
+ * RTT) does not conflict with the serial recovery transport (USB CDC-ACM). */
+#define ZEPHYR_BOOT_LOG_STOP() ((void)0)
+#endif
 #endif /* CONFIG_LOG_PROCESS_THREAD */
 #endif /* !IMMEDIATE && !MINIMAL */
 #endif /* CONFIG_LOG */
