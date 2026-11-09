@@ -252,8 +252,10 @@ boot_uart_fifo_init(void)
 	/* Enable only after the stack reports VBUS. Enabling ahead of that
 	 * event races it, and the device then never attaches to the host. */
 	if (usbd_can_detect_vbus(boot_usb_cdc_serial_get_context())) {
-		if (k_sem_take(&boot_usbd_vbus_ready,
-			       K_MSEC(BOOT_USBD_VBUS_WAIT_MS)) != 0) {
+		/* Named, as for cdc_wait: cppcheck cannot type K_MSEC's .ticks inline. */
+		const k_timeout_t vbus_wait = K_MSEC(BOOT_USBD_VBUS_WAIT_MS);
+
+		if (k_sem_take(&boot_usbd_vbus_ready, vbus_wait) != 0) {
 			BOOT_LOG_WRN("No VBUS_READY in %d ms; enabling anyway",
 				     BOOT_USBD_VBUS_WAIT_MS);
 		}
