@@ -474,10 +474,10 @@ boot_swap_type_multi(int image_index)
 #endif
             ) {
             BOOT_LOG_DBG("Image index: %d, Swap type: %s", image_index,
-                         table->swap_type == BOOT_SWAP_TYPE_TEST   ? "test"   :
-                         table->swap_type == BOOT_SWAP_TYPE_PERM   ? "perm"   :
-                         table->swap_type == BOOT_SWAP_TYPE_REVERT ? "revert" :
-                         "BUG; can't happen");
+                         (table->swap_type == BOOT_SWAP_TYPE_TEST)   ? "test"   :
+                         ((table->swap_type == BOOT_SWAP_TYPE_PERM)   ? "perm"   :
+                         ((table->swap_type == BOOT_SWAP_TYPE_REVERT) ? "revert" :
+                         "BUG; can't happen")));
             if (table->swap_type != BOOT_SWAP_TYPE_TEST &&
                     table->swap_type != BOOT_SWAP_TYPE_PERM &&
                     table->swap_type != BOOT_SWAP_TYPE_REVERT) {
