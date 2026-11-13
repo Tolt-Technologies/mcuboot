@@ -50,6 +50,12 @@ extern "C" {
 
 struct flash_area;
 
+#if defined(MCUBOOT_BOOTSTRAP_TRUST_CONFIRMED_PRIMARY) && \
+    (!defined(MCUBOOT_BOOTSTRAP) || defined(MCUBOOT_VALIDATE_PRIMARY_SLOT) || \
+     defined(MCUBOOT_OVERWRITE_ONLY))
+#error "MCUBOOT_BOOTSTRAP_TRUST_CONFIRMED_PRIMARY needs MCUBOOT_BOOTSTRAP, no MCUBOOT_VALIDATE_PRIMARY_SLOT and a swap mode"
+#endif
+
 #define BOOT_TMPBUF_SZ  256
 
 /** Number of image slots in flash; currently limited to two. */
