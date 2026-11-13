@@ -560,24 +560,16 @@ int main(void)
     bool usb_dfu_requested = false;
 #endif
 
-    /*
-     * Seed the FIH delay RNG before any FIH macro fires. FIH_DECLARE
-     * below expands into FIH_SET, which calls fih_delay() unconditionally
-     * when FIH_ENABLE_DELAY is set (the default for FIH_PROFILE_HIGH).
-     * The mbedTLS-backed delay RNG (fih_drbg_ctx) lives in BSS, so without
-     * this call its f_entropy callback is NULL and the first fih_delay()
-     * faults on a NULL function-pointer call from
-     * mbedtls_ctr_drbg_reseed_internal.
-     *
-     * fih_delay_init is a no-op (always_inline returning 1) when delay is
-     * disabled, so this is unconditional.
-     */
-    (void)fih_delay_init();
-
-    FIH_DECLARE(fih_rc, FIH_FAILURE);
-
     MCUBOOT_WATCHDOG_SETUP();
     MCUBOOT_WATCHDOG_FEED();
+
+    /* The mbedTLS heap must exist before the FIH delay RNG seeds, and both before any FIH macro */
+    os_heap_init();
+#ifdef FIH_ENABLE_DELAY
+    (void)fih_delay_init();
+#endif
+
+    FIH_DECLARE(fih_rc, FIH_FAILURE);
 
 #if !defined(MCUBOOT_DIRECT_XIP)
     BOOT_LOG_INF("Starting bootloader");
@@ -589,8 +581,6 @@ int main(void)
     /* LED init */
     io_led_init();
 #endif
-
-    os_heap_init();
 
     ZEPHYR_BOOT_LOG_START();
 
