@@ -1257,6 +1257,23 @@ boot_primary_confirmed(struct boot_loader_state *state)
 }
 #endif
 
+#ifdef MCUBOOT_BOOTSTRAP_TRUST_CONFIRMED_PRIMARY
+/* Only a confirmed primary may boot unverified, so anything else must pass the full check. */
+static fih_ret
+boot_check_primary_trusted(struct boot_loader_state *state)
+{
+    FIH_DECLARE(fih_rc, FIH_FAILURE);
+
+    if (boot_primary_confirmed(state)) {
+        FIH_RET(FIH_SUCCESS);
+    }
+
+    /* cppcheck-suppress misra-c2012-14.4 ; FIH_CALL's control flow is MCUboot's macro */
+    FIH_CALL(boot_validate_slot, fih_rc, state, BOOT_SLOT_PRIMARY, NULL, 0);
+    FIH_RET(fih_rc);
+}
+#endif
+
 #if defined(MCUBOOT_BOOTSTRAP) && !defined(MCUBOOT_OVERWRITE_ONLY)
 /* An update can be a bootstrap over a bad primary, which must be copied over
  * rather than swapped out. A confirmed primary is trusted where the option is on.
@@ -1906,6 +1923,14 @@ context_boot_go(struct boot_loader_state *state, struct boot_rsp *rsp)
              * pretending we just reverted back to primary slot.
              */
 #ifndef MCUBOOT_OVERWRITE_ONLY
+#ifdef MCUBOOT_BOOTSTRAP_TRUST_CONFIRMED_PRIMARY
+            /* Setting image_ok would let an unverified primary boot as confirmed. */
+            /* cppcheck-suppress misra-c2012-14.4 ; FIH_CALL's control flow is MCUboot's macro */
+            FIH_CALL(boot_check_primary_trusted, fih_rc, state);
+            if (FIH_NOT_EQ(fih_rc, FIH_SUCCESS)) {
+                break;
+            }
+#endif
             /* image_ok needs to be explicitly set to avoid a new revert. */
             rc = swap_set_image_ok(BOOT_CURR_IMG(state));
             if (rc != 0) {
@@ -1989,6 +2014,18 @@ context_boot_go(struct boot_loader_state *state, struct boot_rsp *rsp)
             FIH_SET(fih_rc, FIH_FAILURE);
             goto out;
         }
+#ifdef MCUBOOT_BOOTSTRAP_TRUST_CONFIRMED_PRIMARY
+        /* cppcheck-suppress misra-c2012-14.4 ; FIH_CALL's control flow is MCUboot's macro */
+        FIH_CALL(boot_check_primary_trusted, fih_rc, state);
+        if (FIH_NOT_EQ(fih_rc, FIH_SUCCESS) ||
+            FIH_EQ(fih_rc, FIH_FAILURE) ||
+            FIH_EQ(fih_rc, FIH_NO_BOOTABLE_IMAGE)) {
+            BOOT_LOG_ERR("Unconfirmed primary failed validation; Image=%u",
+                         BOOT_CURR_IMG(state));
+            FIH_SET(fih_rc, FIH_FAILURE);
+            goto out;
+        }
+#endif
 #endif /* MCUBOOT_VALIDATE_PRIMARY_SLOT */
 
         rc = boot_update_hw_rollback_protection(state);

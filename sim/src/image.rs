@@ -460,6 +460,36 @@ impl ImagesBuilder {
         }
     }
 
+    /// An unconfirmed primary with a bad signature, over an erased secondary or a bad pending one.
+    pub fn make_unconfirmed_bad_primary_image(self, pending_bad_secondary: bool) -> Images {
+        let mut flash = self.flash;
+        let ram = self.ram.clone(); // TODO: Avoid this clone.
+        let images = self.slots.into_iter().enumerate().map(|(image_num, slots)| {
+            let dep = BoringDep::new(image_num, &NO_DEPS);
+            let primaries = install_image(&mut flash, &self.areadesc, &slots, 0,
+                maximal(32784), &ram, &dep, ImageManipulation::BadSignature, Some(0));
+            let upgrades = if pending_bad_secondary {
+                let upgrades = install_image(&mut flash, &self.areadesc, &slots, 1,
+                    maximal(32784), &ram, &dep, ImageManipulation::BadSignature, Some(0));
+                mark_upgrade(&mut flash, &slots[1]);
+                upgrades
+            } else {
+                install_no_image()
+            };
+            OneImage {
+                slots,
+                primaries,
+                upgrades,
+            }}).collect();
+        Images {
+            flash,
+            areadesc: self.areadesc,
+            images,
+            total_count: None,
+            ram: self.ram,
+        }
+    }
+
     /// If security_cnt is None then do not add a security counter TLV, otherwise add the specified value.
     pub fn make_image_with_security_counter(self, security_cnt: Option<u32>) -> Images {
         let mut flash = self.flash;
@@ -731,6 +761,26 @@ impl Images {
         if !self.verify_images(&flash, 0, 0) {
             warn!("The confirmed primary was not left in place");
             fails += 1;
+        }
+
+        fails > 0
+    }
+
+    /// With bootstrap-trust-confirmed an unconfirmed primary that fails validation must not
+    /// boot, on the first boot or on the one after a failed upgrade.
+    pub fn run_unconfirmed_bad_primary(&self) -> bool {
+        if !cfg!(feature = "bootstrap-trust-confirmed") {
+            return false;
+        }
+
+        let mut flash = self.flash.clone();
+        let mut fails = 0;
+
+        for boot in 1..=2 {
+            if c::boot_go(&mut flash, &self.areadesc, None, None, false).success() {
+                warn!("Unconfirmed bad primary booted on boot {}", boot);
+                fails += 1;
+            }
         }
 
         fails > 0
