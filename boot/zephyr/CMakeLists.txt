@@ -288,6 +288,10 @@ if(CONFIG_BOOT_USE_TINYCRYPT)
   endif()
 endif()
 
+if(CONFIG_BOOT_NRF_SPU_LOCK_BOOT_PARTITION AND CONFIG_BOOT_ENCRYPT_IMAGE)
+  zephyr_linker_sources(ROM_START SORT_KEY 0x2enc_key include/nrf/spu_lock_enc_key.ld)
+endif()
+
 if(CONFIG_MCUBOOT_SERIAL)
   zephyr_sources(
     ${BOOT_DIR}/zephyr/serial_adapter.c

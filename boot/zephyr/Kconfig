@@ -1318,6 +1318,18 @@ config BOOT_DISABLE_CACHES
 	  increases protection against data leakage from MCUboot to applications via
 	  these caches.
 
+config BOOT_NRF_SPU_LOCK_BOOT_PARTITION
+	bool "Lock the bootloader's flash against reads and writes before booting"
+	depends on SOC_NRF5340_CPUAPP && !TRUSTED_EXECUTION_NONSECURE
+	depends on ARCH_HAS_RAMFUNC_SUPPORT && !MCUBOOT_CLEANUP_RAM
+	default y
+	help
+	  If y, the SPU flash regions that lie wholly inside boot_partition
+	  are set to no read and no write, locked until the next reset, just
+	  before the jump to the image. A region shared with the next
+	  partition is left as it is, and the bootloader refuses to boot if
+	  its image-encryption key is not inside the locked range.
+
 config MCUBOOT_BOOT_BANNER
 	bool "Use MCUboot boot banner"
 	depends on BOOT_BANNER
