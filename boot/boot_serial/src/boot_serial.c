@@ -853,6 +853,24 @@ static off_t erase_range(const struct flash_area *fap, off_t start, off_t end)
 }
 #endif
 
+#ifdef MCUBOOT_SERIAL_DENY_PRIMARY_UPLOAD
+/* Recovery is unauthenticated, so it may write only a slot that is validated before it boots. */
+static bool
+bs_upload_targets_primary(uint32_t img_num)
+{
+    int area_id = flash_area_id_from_direct_image((int)img_num);
+    uint32_t i;
+
+    for (i = 0U; i < (uint32_t)BOOT_IMAGE_NUMBER; i++) {
+        /* cppcheck-suppress misra-c2012-10.4 ; FLASH_AREA_IMAGE_PRIMARY is upstream's devicetree ID */
+        if (area_id == FLASH_AREA_IMAGE_PRIMARY(i)) {
+            return true;
+        }
+    }
+    return false;
+}
+#endif
+
 /*
  * Image upload request.
  */
@@ -935,6 +953,14 @@ bs_upload(char *buf, int len)
             img_num = 0;
         }
     }
+
+#ifdef MCUBOOT_SERIAL_DENY_PRIMARY_UPLOAD
+    if (bs_upload_targets_primary(img_num)) {
+        BOOT_LOG_ERR("Upload to a primary slot refused, image %u", (unsigned int)img_num);
+        rc = MGMT_ERR_EACCESSDENIED;
+        goto out;
+    }
+#endif
 
 #if !defined(MCUBOOT_SERIAL_DIRECT_IMAGE_UPLOAD)
     rc = flash_area_open(flash_area_id_from_multi_image_slot(img_num, 0), &fap);
@@ -1165,7 +1191,7 @@ out:
 
     boot_serial_output();
 
-#ifdef MCUBOOT_ENC_IMAGES
+#if defined(MCUBOOT_ENC_IMAGES) && !defined(MCUBOOT_SERIAL_DENY_PRIMARY_UPLOAD)
     /* Check if this upload was for the primary slot */
 #if !defined(MCUBOOT_SERIAL_DIRECT_IMAGE_UPLOAD)
     if (flash_area_id_from_multi_image_slot(img_num, 0) == FLASH_AREA_IMAGE_PRIMARY(0))

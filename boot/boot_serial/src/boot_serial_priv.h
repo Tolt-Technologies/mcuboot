@@ -43,6 +43,7 @@ extern "C" {
 #define MGMT_ERR_ENOENT         5
 #define MGMT_ERR_ENOTSUP        8
 #define MGMT_ERR_EBUSY		10
+#define MGMT_ERR_EACCESSDENIED  11
 
 #define NMGR_OP_READ            0
 #define NMGR_OP_WRITE           2
