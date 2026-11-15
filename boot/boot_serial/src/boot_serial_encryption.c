@@ -34,18 +34,23 @@ boot_image_validate_encrypted(struct boot_loader_state *state,
     if (MUST_DECRYPT(fa_p, BOOT_CURR_IMG(state), hdr)) {
         rc = boot_enc_load(state, BOOT_SLOT_SECONDARY, hdr, fa_p, bs);
         if (rc < 0) {
-            FIH_RET(fih_rc);
+            goto out;
         }
         rc = boot_enc_set_key(BOOT_CURR_ENC_SLOT(state, BOOT_SLOT_SECONDARY), bs->enckey[BOOT_SLOT_SECONDARY]);
         if (rc < 0) {
-            FIH_RET(fih_rc);
+            goto out;
         }
     }
 
     FIH_CALL(bootutil_img_validate, fih_rc, state,
              hdr, fa_p, buf, buf_size, NULL, 0, NULL);
 
+out:
     boot_enc_zeroize(BOOT_CURR_ENC(state));
+    /* boot_enc_load() populates _bs.enckey[] with the raw AES key; wipe it
+     * so it does not survive on the stack after this function returns.
+     */
+    bootutil_wipe_memory(&_bs, sizeof(_bs));
 
     FIH_RET(fih_rc);
 }
@@ -137,7 +142,8 @@ decrypt_region_inplace(struct enc_key_data *enc_data,
 
         rc = flash_area_read(fap, off + bytes_copied, buf, chunk_sz);
         if (rc != 0) {
-            return BOOT_EFLASH;
+            rc = BOOT_EFLASH;
+            goto out;
         }
 
         if (IS_ENCRYPTED(hdr)) {
@@ -173,11 +179,13 @@ decrypt_region_inplace(struct enc_key_data *enc_data,
         }
         rc = boot_erase_region(fap, off + bytes_copied, chunk_sz, false);
         if (rc != 0) {
-            return BOOT_EFLASH;
+            rc = BOOT_EFLASH;
+            goto out;
         }
         rc = flash_area_write(fap, off + bytes_copied, buf, chunk_sz);
         if (rc != 0) {
-            return BOOT_EFLASH;
+            rc = BOOT_EFLASH;
+            goto out;
         }
 
         bytes_copied += chunk_sz;
@@ -185,7 +193,11 @@ decrypt_region_inplace(struct enc_key_data *enc_data,
         MCUBOOT_WATCHDOG_FEED();
     }
 
-    return 0;
+    rc = 0;
+out:
+    /* buf may hold decrypted image plaintext; clear it before returning. */
+    bootutil_wipe_memory(buf, sizeof buf);
+    return rc;
 }
 
 /**
@@ -265,7 +277,7 @@ decrypt_image_inplace(const struct flash_area *fa_p,
     for (sect = 0, size = 0; size < src_size && sect < sect_count; sect++) {
         rc = decrypt_region_inplace(&enc_data, fa_p, hdr, size, sect_size);
         if (rc != 0) {
-            FIH_RET(fih_rc);
+            goto total_out;
         }
         size += sect_size;
     }
@@ -274,6 +286,10 @@ decrypt_image_inplace(const struct flash_area *fa_p,
 total_out:
     boot_enc_zeroize(&enc_data);
     boot_state_clear(state);
+    /* boot_enc_load() populates _bs.enckey[] with the raw AES key; wipe it
+     * so it does not survive on the stack after this function returns.
+     */
+    bootutil_wipe_memory(&_bs, sizeof(_bs));
     FIH_RET(fih_rc);
 }
 
