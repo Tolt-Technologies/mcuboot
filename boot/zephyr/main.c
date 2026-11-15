@@ -66,10 +66,6 @@
 #define PRIMARY_SLOT    0
 #define SECONDARY_SLOT  1
 
-#if defined(CONFIG_LOG_BACKEND_SWO)
-#define SWO_TPIU_DRAIN_US 1000
-#endif
-
 #define IMAGE0_PRIMARY_START_ADDRESS \
           DT_PROP_BY_IDX(DT_NODE_BY_PARTITION_LABEL(image_0), reg, 0)
 #define IMAGE0_PRIMARY_SIZE \
@@ -81,6 +77,10 @@
           DT_PROP_BY_IDX(DT_NODE_BY_PARTITION_LABEL(image_1), reg, 1)
 
 #endif /* CONFIG_SOC_FAMILY_ESPRESSIF_ESP32 */
+
+#if defined(CONFIG_LOG_BACKEND_SWO)
+#define SWO_TPIU_DRAIN_US 1000
+#endif
 
 #ifdef CONFIG_MCUBOOT_SERIAL
 #include "boot_serial/boot_serial.h"
