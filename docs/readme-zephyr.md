@@ -245,6 +245,12 @@ Alternatively, MCUboot can wait for a limited time to check if DFU is invoked by
 Select ``CONFIG_BOOT_SERIAL_WAIT_FOR_DFU=y`` to use this mode. ``CONFIG_BOOT_SERIAL_WAIT_FOR_DFU_TIMEOUT`` option defines
 the amount of time in milliseconds the device will wait for the trigger.
 
+An application can also request serial recovery through Zephyr's boot mode retention: select ``CONFIG_BOOT_SERIAL_BOOT_MODE=y``, and the application sets the boot mode and reboots.
+MCUboot clears the boot mode on entry, so by default it then waits in serial recovery until a host uploads an image or the device is power-cycled.
+Set ``CONFIG_BOOT_SERIAL_BOOT_MODE_IDLE_TIMEOUT`` to a number of milliseconds to leave instead: if no host opens the port, or no valid frame arrives, for that long, MCUboot reboots and the application boots.
+Each valid frame restarts the timeout, so an upload in progress is not cut off.
+Serial recovery entered for any other reason, such as ``CONFIG_BOOT_SERIAL_NO_APPLICATION``, is not affected.
+
 ### Direct image upload
 
 By default, the SMP server implementation will only use the first slot.
