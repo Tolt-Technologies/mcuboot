@@ -1289,7 +1289,7 @@ bs_system_reset(void)
  * BOOT_MAX_LINE_INPUT_LEN to remain at the standard 128-byte fragment size.
  */
 static void
-bs_mcumgr_params(char *buf, int len)
+bs_mcumgr_params(const char *buf, int len)
 {
     static const uint_fast32_t max_num = 2;
     (void)buf;
