@@ -341,9 +341,9 @@ bs_list(struct boot_loader_state *state, char *buf, int len)
             if (rc == BOOT_HOOK_REGULAR)
             {
 #ifdef MCUBOOT_SWAP_USING_OFFSET
-                flash_area_read(fap, start_off, &hdr, sizeof(hdr));
+                rc = flash_area_read(fap, start_off, &hdr, sizeof(hdr));
 #else
-                flash_area_read(fap, 0, &hdr, sizeof(hdr));
+                rc = flash_area_read(fap, 0, &hdr, sizeof(hdr));
 #endif
             }
 
@@ -357,7 +357,7 @@ bs_list(struct boot_loader_state *state, char *buf, int len)
              * command, which on this target stacked up past the hardware
              * watchdog during serial recovery.
              */
-            if (hdr.ih_magic != IMAGE_MAGIC) {
+            if ((rc != 0) || (hdr.ih_magic != IMAGE_MAGIC)) {
                 continue;
             }
 
@@ -539,9 +539,9 @@ bs_set(struct boot_loader_state *state, char *buf, int len)
                 if (rc == BOOT_HOOK_REGULAR)
                 {
 #ifdef MCUBOOT_SWAP_USING_OFFSET
-                    flash_area_read(fap, start_off, &hdr, sizeof(hdr));
+                    rc = flash_area_read(fap, start_off, &hdr, sizeof(hdr));
 #else
-                    flash_area_read(fap, 0, &hdr, sizeof(hdr));
+                    rc = flash_area_read(fap, 0, &hdr, sizeof(hdr));
 #endif
                 }
 
@@ -552,7 +552,7 @@ bs_set(struct boot_loader_state *state, char *buf, int len)
                  * at boot time before the selected image is copied to the
                  * primary slot.
                  */
-                if (hdr.ih_magic != IMAGE_MAGIC) {
+                if ((rc != 0) || (hdr.ih_magic != IMAGE_MAGIC)) {
                     continue;
                 }
 
