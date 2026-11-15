@@ -165,7 +165,8 @@ BOOT_LOG_MODULE_DECLARE(mcuboot);
 #define BOOT_DIRECT_UPLOAD_SECONDARY_SLOT_ID_REMAINDER 0
 
 static char in_buf[MCUBOOT_SERIAL_MAX_RECEIVE_SIZE + 1];
-static char dec_buf[MCUBOOT_SERIAL_MAX_RECEIVE_SIZE + 1];
+/* +2: boot_serial_in_dec() can fill sizeof(in_buf) bytes, then NUL-terminates one past them. */
+static char dec_buf[MCUBOOT_SERIAL_MAX_RECEIVE_SIZE + 2];
 const struct boot_uart_funcs *boot_uf;
 static struct nmgr_hdr *bs_hdr;
 static bool bs_entry;
