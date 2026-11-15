@@ -625,6 +625,14 @@ static void boot_serial_enter()
 }
 #endif
 
+#ifdef MCUBOOT_SERIAL_IDLE_TIMEOUT
+/* Overridable so a board can keep some boot-mode entries waiting for a host. */
+__weak uint32_t boot_serial_boot_mode_idle_timeout_ms(void)
+{
+    return CONFIG_BOOT_SERIAL_BOOT_MODE_IDLE_TIMEOUT;
+}
+#endif
+
 int main(void)
 {
     /* Zero-initialised so the header check below tests a known value: the
@@ -753,7 +761,7 @@ int main(void)
          */
         BOOT_LOG_DBG("Staying in serial recovery");
 #ifdef MCUBOOT_SERIAL_IDLE_TIMEOUT
-        boot_serial_idle_arm(CONFIG_BOOT_SERIAL_BOOT_MODE_IDLE_TIMEOUT);
+        boot_serial_idle_arm(boot_serial_boot_mode_idle_timeout_ms());
 #endif
         boot_serial_enter();
     }

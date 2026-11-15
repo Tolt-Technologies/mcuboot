@@ -249,6 +249,7 @@ An application can also request serial recovery through Zephyr's boot mode reten
 MCUboot clears the boot mode on entry, so by default it then waits in serial recovery until a host uploads an image or the device is power-cycled.
 Set ``CONFIG_BOOT_SERIAL_BOOT_MODE_IDLE_TIMEOUT`` to a number of milliseconds to leave instead: if no host opens the port, or no valid frame arrives, for that long, MCUboot reboots and the application boots.
 Each valid frame restarts the timeout, so an upload in progress is not cut off.
+A board can override the weak `boot_serial_boot_mode_idle_timeout_ms()` to choose the timeout per entry, returning 0 to keep waiting, for example when its own code set the boot mode after detecting a boot loop.
 Serial recovery entered for any other reason, such as ``CONFIG_BOOT_SERIAL_NO_APPLICATION``, is not affected.
 
 ### Direct image upload

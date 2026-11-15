@@ -236,7 +236,9 @@ config BOOT_SERIAL_BOOT_MODE_IDLE_TIMEOUT
 	help
 	  When serial recovery was entered by boot mode, reboot if no host opens
 	  the port, or no valid frame arrives, for this long; the boot mode is
-	  already cleared, so the application boots. 0 waits forever.
+	  already cleared, so the application boots. 0 waits forever. A board
+	  can override the weak boot_serial_boot_mode_idle_timeout_ms() to
+	  pick the timeout per entry.
 
 config BOOT_SERIAL_NO_APPLICATION
 	bool "Stay in bootloader if no application"

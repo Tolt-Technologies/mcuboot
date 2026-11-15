@@ -63,6 +63,12 @@ void boot_serial_idle_arm(uint32_t timeout_ms);
 /** Reboot if the deadline set by boot_serial_idle_arm() has passed. */
 void boot_serial_idle_check(void);
 
+/**
+ * Idle timeout in ms for this boot-mode entry, 0 to wait forever. Weak; the
+ * default returns CONFIG_BOOT_SERIAL_BOOT_MODE_IDLE_TIMEOUT.
+ */
+uint32_t boot_serial_boot_mode_idle_timeout_ms(void);
+
 #ifdef __cplusplus
 }
 #endif
