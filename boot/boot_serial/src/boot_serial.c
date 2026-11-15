@@ -1292,9 +1292,13 @@ static void
 bs_mcumgr_params(char *buf, int len)
 {
     static const uint_fast32_t max_num = 2;
+    (void)buf;
+    (void)len;
     bool ok = zcbor_map_start_encode(cbor_state, max_num) &&
+              /* cppcheck-suppress [misra-c2012-11.8, misra-c2012-10.4] ; zcbor's literal-string macro */
               zcbor_tstr_put_lit_cast(cbor_state, "buf_size") &&
               zcbor_uint32_put(cbor_state, MCUBOOT_SERIAL_MAX_RECEIVE_SIZE) &&
+              /* cppcheck-suppress [misra-c2012-11.8, misra-c2012-10.4] ; zcbor's literal-string macro */
               zcbor_tstr_put_lit_cast(cbor_state, "buf_count") &&
               zcbor_uint32_put(cbor_state, 1) &&
               zcbor_map_end_encode(cbor_state, max_num);
