@@ -47,6 +47,7 @@
 #include "bootutil/boot_hooks.h"
 #include "bootutil/fault_injection_hardening.h"
 #include "bootutil/mcuboot_status.h"
+#include "bootutil/sign_key.h"
 #include "flash_map_backend/flash_map_backend.h"
 
 #if defined(CONFIG_MCUBOOT_UUID_VID) || defined(CONFIG_MCUBOOT_UUID_CID)
@@ -168,6 +169,66 @@ struct arm_vector_table {
 #endif
 };
 
+#ifdef CONFIG_BOOT_NRF_SPU_LOCK_BOOT_PARTITION
+/* cppcheck-suppress misra-c2012-11.4 ; NRF_SPU_S is the nrfx register-block address */
+#define BOOT_SPU_REGION_SIZE \
+    ((uint32_t)(DT_REG_SIZE(DT_CHOSEN(zephyr_flash)) / ARRAY_SIZE(NRF_SPU_S->FLASHREGION)))
+#define BOOT_SPU_LOCK_START ((uint32_t)DT_REG_ADDR(DT_NODELABEL(boot_partition)))
+/* cppcheck-suppress misra-c2012-11.4 ; NRF_SPU_S is the nrfx register-block address */
+#define BOOT_SPU_LOCK_END \
+    ((uint32_t)ROUND_DOWN(BOOT_SPU_LOCK_START + (uint32_t)DT_REG_SIZE(DT_NODELABEL(boot_partition)), \
+                          BOOT_SPU_REGION_SIZE))
+
+/* cppcheck-suppress misra-c2012-10.4 ; constants inside DT_REG_* and BUILD_ASSERT */
+BUILD_ASSERT((BOOT_SPU_LOCK_START % BOOT_SPU_REGION_SIZE) == 0U,
+             "boot_partition must start on an SPU flash region");
+/* cppcheck-suppress misra-c2012-10.4 ; constants inside DT_REG_* and BUILD_ASSERT */
+BUILD_ASSERT(BOOT_SPU_LOCK_END > BOOT_SPU_LOCK_START,
+             "boot_partition holds no whole SPU flash region");
+
+/* Runs from RAM: once locked, even a literal-pool load from boot_partition faults. */
+static __ramfunc __noinline FUNC_NORETURN void
+/* cppcheck-suppress misra-c2012-2.7 ; msp and reset are consumed by the asm block */
+boot_spu_lock_and_jump(uint32_t msp, uint32_t reset)
+{
+    const uint32_t clear = SPU_FLASHREGION_PERM_READ_Msk | SPU_FLASHREGION_PERM_WRITE_Msk;
+    uint32_t i;
+
+    /* cppcheck-suppress misra-c2012-10.4 ; constants inside DT_REG_* and ROUND_DOWN */
+    for (i = BOOT_SPU_LOCK_START / BOOT_SPU_REGION_SIZE;
+         /* cppcheck-suppress misra-c2012-10.4 ; constants inside DT_REG_* and ROUND_DOWN */
+         i < (BOOT_SPU_LOCK_END / BOOT_SPU_REGION_SIZE); i++) {
+        NRF_SPU_S->FLASHREGION[i].PERM = (NRF_SPU_S->FLASHREGION[i].PERM & ~clear) |
+                                         SPU_FLASHREGION_PERM_LOCK_Msk;
+    }
+
+    __asm__ volatile(
+        "   dsb\n"
+        "   isb\n"
+        "   msr     msp, %0\n"
+        "   bx      %1\n"
+        :
+        : "r" (msp), "r" (reset)
+        : "memory"
+    );
+    CODE_UNREACHABLE;
+}
+
+#if defined(MCUBOOT_ENC_IMAGES)
+extern const struct bootutil_key bootutil_enc_key;
+
+static bool boot_spu_lock_covers_enc_key(void)
+{
+    /* cppcheck-suppress misra-c2012-11.4 ; the check is on the key's flash address */
+    uintptr_t start = (uintptr_t)bootutil_enc_key.key - (uintptr_t)CONFIG_FLASH_BASE_ADDRESS;
+    uintptr_t end = start + (uintptr_t)*bootutil_enc_key.len;
+
+    /* cppcheck-suppress [unsignedPositive, misra-c2012-10.4] ; LOCK_START is 0 on this layout only, and DT_REG_* constants */
+    return (start >= (uintptr_t)BOOT_SPU_LOCK_START) && (end <= (uintptr_t)BOOT_SPU_LOCK_END);
+}
+#endif
+#endif /* CONFIG_BOOT_NRF_SPU_LOCK_BOOT_PARTITION */
+
 static void do_boot(struct boot_rsp *rsp)
 {
     /* vt is static as it shall not land on the stack,
@@ -265,6 +326,12 @@ static void do_boot(struct boot_rsp *rsp)
     SCB->VTOR = (uint32_t)__vector_relay_table;
 #endif
 #endif /* CONFIG_BOOT_INTR_VEC_RELOC */
+
+#ifdef CONFIG_BOOT_NRF_SPU_LOCK_BOOT_PARTITION
+    __set_CONTROL(0x00);
+    __ISB();
+    boot_spu_lock_and_jump(vt->msp, vt->reset);
+#endif
 
 #ifdef CONFIG_CPU_CORTEX_M
     __set_MSP(vt->msp);
@@ -747,6 +814,13 @@ int main(void)
     BOOT_LOG_INF("Jumping to the image slot");
 #else
     BOOT_LOG_INF("Jumping to the first image slot");
+#endif
+
+#if defined(CONFIG_BOOT_NRF_SPU_LOCK_BOOT_PARTITION) && defined(MCUBOOT_ENC_IMAGES)
+    if (!boot_spu_lock_covers_enc_key()) {
+        BOOT_LOG_ERR("Image encryption key lies outside the SPU-locked flash");
+        FIH_PANIC;
+    }
 #endif
 
     mcuboot_status_change(MCUBOOT_STATUS_BOOTABLE_IMAGE_FOUND);

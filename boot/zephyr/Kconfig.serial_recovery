@@ -108,6 +108,16 @@ config MCUBOOT_SERIAL_DIRECT_IMAGE_UPLOAD
 	  Note that 0 is default upload target when no explicit
 	  selection is done.
 
+config BOOT_SERIAL_DENY_PRIMARY_UPLOAD
+	bool "Refuse serial recovery uploads to a primary slot"
+	depends on MCUBOOT_SERIAL_DIRECT_IMAGE_UPLOAD
+	default y
+	help
+	  If y, an upload whose image number maps to a primary slot is
+	  refused with MGMT_ERR_EACCESSDENIED before anything is erased.
+	  Recovery can then only write a secondary slot, whose image is
+	  validated before it is swapped in, even with BOOT_VALIDATE_SLOT0=n.
+
 config BOOT_SERIAL_UNALIGNED_BUFFER_SIZE
 	int "Stack buffer for unaligned memory writes"
 	default 512 if SOC_SERIES_LPC55XXX
