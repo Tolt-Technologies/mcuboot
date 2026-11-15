@@ -66,6 +66,10 @@
 #define PRIMARY_SLOT    0
 #define SECONDARY_SLOT  1
 
+#if defined(CONFIG_LOG_BACKEND_SWO)
+#define SWO_TPIU_DRAIN_US 1000
+#endif
+
 #define IMAGE0_PRIMARY_START_ADDRESS \
           DT_PROP_BY_IDX(DT_NODE_BY_PARTITION_LABEL(image_0), reg, 0)
 #define IMAGE0_PRIMARY_SIZE \
@@ -839,7 +843,7 @@ int main(void)
      * still needs time to clock bytes out at the SWO baud rate.
      * At 4 MHz NRZ, ~200 bytes (a few log lines) takes ~500 µs.
      */
-    k_busy_wait(1000);
+    k_busy_wait(SWO_TPIU_DRAIN_US);
 #endif
 
     do_boot(&rsp);
