@@ -168,10 +168,13 @@ boot_uart_fifo_store(void)
 			if (node == NULL) {
 				return false;
 			}
+			/* cppcheck-suppress [misra-c2012-11.4, misra-c2012-18.4, misra-c2012-1.2] ; CONTAINER_OF is Zephyr's macro */
 			cmd = CONTAINER_OF(node, struct line_input, node);
 		}
 
+		/* cppcheck-suppress misra-c2012-11.5 ; memchr returns a pointer into rx_batch_buf */
 		nl = memchr(p, '\n', rx_pend_len);
+		/* cppcheck-suppress misra-c2012-18.4 ; nl and p both point into rx_batch_buf */
 		chunk = (nl != NULL) ? (size_t)(nl - p + 1) : rx_pend_len;
 		copy_len = MIN(chunk, (size_t)CONFIG_BOOT_MAX_LINE_INPUT_LEN - (size_t)cur);
 		(void)memcpy(&cmd->line[cur], p, copy_len);
@@ -202,7 +205,7 @@ boot_uart_fifo_callback(const struct device *dev, void *user_data)
 	}
 
 #if defined(CONFIG_BOOT_SERIAL_CDC_ACM) || defined(CONFIG_BOOT_SERIAL_RAW_PROTOCOL)
-	if (uart_blocked == true) {
+	if (uart_blocked) {
 		return;
 	}
 #endif
@@ -271,6 +274,7 @@ boot_uart_fifo_getline(char **line)
 		return 0;
 	}
 
+	/* cppcheck-suppress [misra-c2012-11.4, misra-c2012-18.4, misra-c2012-1.2] ; CONTAINER_OF is Zephyr's macro */
 	input_cmd = CONTAINER_OF(node, struct line_input, node);
 	*line = input_cmd->line;
 	return input_cmd->len;
