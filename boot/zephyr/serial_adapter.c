@@ -71,6 +71,8 @@ static sys_slist_t avail_queue;
 static sys_slist_t lines_queue;
 
 static uint16_t cur;
+/* Set when the RX callback ran out of line buffers and disabled RX. */
+static volatile bool rx_throttled;
 
 static int boot_uart_fifo_getline(char **line);
 static int boot_uart_fifo_init(void);
@@ -151,21 +153,22 @@ boot_uart_fifo_callback(const struct device *dev, void *user_data)
 	}
 
 	while (true) {
+		if (cmd == NULL) {
+			sys_snode_t *node = sys_slist_get(&avail_queue);
+
+			if (node == NULL) {
+				/* Leave the bytes with the driver until getline frees a buffer. */
+				rx_throttled = true;
+				uart_irq_rx_disable(uart_dev);
+				return;
+			}
+			/* cppcheck-suppress [misra-c2012-11.4, misra-c2012-18.4, misra-c2012-1.2] ; CONTAINER_OF is Zephyr's macro */
+			cmd = CONTAINER_OF(node, struct line_input, node);
+		}
+
 		rx = uart_fifo_read(uart_dev, &byte, 1);
 		if (rx != 1) {
 			break;
-		}
-
-		if (!cmd) {
-			sys_snode_t *node;
-
-			node = sys_slist_get(&avail_queue);
-			if (!node) {
-				BOOT_LOG_ERR("Not enough memory to store"
-					     " incoming data!");
-				return;
-			}
-			cmd = CONTAINER_OF(node, struct line_input, node);
 		}
 
 		if (cur < CONFIG_BOOT_MAX_LINE_INPUT_LEN) {
@@ -186,6 +189,7 @@ boot_uart_fifo_getline(char **line)
 {
 	static struct line_input *cmd;
 	sys_snode_t *node;
+	bool resume;
 	int key;
 
 	key = irq_lock();
@@ -197,7 +201,15 @@ boot_uart_fifo_getline(char **line)
 	}
 
 	node = sys_slist_get(&lines_queue);
+	resume = rx_throttled && !sys_slist_is_empty(&avail_queue);
+	if (resume) {
+		rx_throttled = false;
+	}
 	irq_unlock(key);
+
+	if (resume) {
+		uart_irq_rx_enable(uart_dev);
+	}
 
 	if (node == NULL) {
 		cmd = NULL;
