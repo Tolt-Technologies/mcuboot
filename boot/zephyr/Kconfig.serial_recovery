@@ -75,6 +75,20 @@ config BOOT_SERIAL_CDC_ACM_PRODUCT_STRING
 	help
 	  USB product string descriptor for serial recovery mode.
 
+config BOOT_SERIAL_CDC_ACM_SN_HOOK
+	bool "Application supplies the CDC ACM serial number string"
+	help
+	  Fill the serial number string descriptor from
+	  boot_usb_cdc_serial_sn(), which the application implements, instead
+	  of from HWINFO. Lets recovery report the same serial as the
+	  application. A non-zero return fails USB initialisation.
+
+config BOOT_SERIAL_CDC_ACM_SN_MAX_LEN
+	int "Longest serial number boot_usb_cdc_serial_sn() may return"
+	default 32
+	range 1 126
+	depends on BOOT_SERIAL_CDC_ACM_SN_HOOK
+
 config BOOT_SERIAL_CDC_ACM_SELF_POWERED
 	bool "USB self-powered attribute for CDC ACM serial recovery"
 	help
