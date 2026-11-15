@@ -165,8 +165,6 @@ BOOT_LOG_MODULE_DECLARE(mcuboot);
 #define BOOT_DIRECT_UPLOAD_SECONDARY_SLOT_ID_REMAINDER 0
 
 static char in_buf[MCUBOOT_SERIAL_MAX_RECEIVE_SIZE + 1];
-/* +2: boot_serial_in_dec() can fill sizeof(in_buf) bytes, then NUL-terminates one past them. */
-static char dec_buf[MCUBOOT_SERIAL_MAX_RECEIVE_SIZE + 2];
 const struct boot_uart_funcs *boot_uf;
 static struct nmgr_hdr *bs_hdr;
 static bool bs_entry;
@@ -1267,7 +1265,7 @@ bs_system_reset(void)
 {
 #ifdef __ZEPHYR__
 #ifdef CONFIG_MULTITHREADING
-    k_sleep(K_MSEC(250));
+    (void)k_sleep(K_MSEC(250));
 #else
     k_busy_wait(250000);
 #endif
@@ -1542,6 +1540,8 @@ boot_serial_idle_check(void)
 static void
 boot_serial_read_console(const struct boot_uart_funcs *f,int timeout_in_ms)
 {
+    /* +2: boot_serial_in_dec() can fill sizeof(in_buf) bytes, then NUL-terminates one past them. */
+    static char dec_buf[MCUBOOT_SERIAL_MAX_RECEIVE_SIZE + 2];
     int rc;
     int off;
     int dec_off = 0;
