@@ -341,7 +341,7 @@ bs_list(struct boot_loader_state *state, char *buf, int len)
             if (rc == BOOT_HOOK_REGULAR)
             {
 #ifdef MCUBOOT_SWAP_USING_OFFSET
-                rc = flash_area_read(fap, start_off, &hdr, sizeof(hdr));
+                rc = flash_area_read(fap, (off_t)start_off, &hdr, sizeof(hdr));
 #else
                 rc = flash_area_read(fap, 0, &hdr, sizeof(hdr));
 #endif
@@ -539,7 +539,7 @@ bs_set(struct boot_loader_state *state, char *buf, int len)
                 if (rc == BOOT_HOOK_REGULAR)
                 {
 #ifdef MCUBOOT_SWAP_USING_OFFSET
-                    rc = flash_area_read(fap, start_off, &hdr, sizeof(hdr));
+                    rc = flash_area_read(fap, (off_t)start_off, &hdr, sizeof(hdr));
 #else
                     rc = flash_area_read(fap, 0, &hdr, sizeof(hdr));
 #endif
