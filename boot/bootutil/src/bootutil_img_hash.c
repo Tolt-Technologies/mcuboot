@@ -126,7 +126,9 @@ bootutil_img_hash(struct boot_loader_state *state,
         return -1;
     }
 
+#if defined(MCUBOOT_ENC_IMAGES)
     tlv_off = size;
+#endif
 
     if (!boot_u32_safe_add(&size, size, hdr->ih_protect_tlv_size) ||
         !boot_u32_safe_add(&end, size, sector_off) ||
