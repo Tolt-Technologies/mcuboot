@@ -1534,6 +1534,40 @@ boot_serial_idle_check(void)
 #endif
 
 /*
+ * A request is rejected from its first line when the length it announces cannot
+ * fit the decode buffer, so the client gets MGMT_ERR_EMSGSIZE instead of silence.
+ * Returns true when the rest of the request is to be discarded.
+ */
+static bool
+bs_reject_oversize(const char *dec, int dec_off, int maxout)
+{
+    static struct nmgr_hdr rej_hdr;
+    const uint8_t *b = (const uint8_t *)dec;
+    const size_t hdr_at = sizeof(uint16_t);
+    const size_t group_at = hdr_at + offsetof(struct nmgr_hdr, nh_group);
+    uint32_t len;
+
+    if ((size_t)dec_off < (hdr_at + sizeof(rej_hdr))) {
+        return false;
+    }
+    len = ((uint32_t)b[0] << 8U) | (uint32_t)b[1];
+    if ((hdr_at + len) <= (size_t)maxout) {
+        return false;
+    }
+    BOOT_LOG_WRN("Request of %u bytes exceeds the %d-byte receive buffer",
+                 (unsigned int)len, maxout);
+    /* cppcheck-suppress misra-c2012-21.15 ; nmgr_hdr is __packed and mirrors the wire bytes */
+    (void)memcpy(&rej_hdr, &b[hdr_at], sizeof(rej_hdr));
+    if ((rej_hdr.nh_op == (uint8_t)NMGR_OP_READ) || (rej_hdr.nh_op == (uint8_t)NMGR_OP_WRITE)) {
+        rej_hdr.nh_group = (uint16_t)(((uint32_t)b[group_at] << 8U) | (uint32_t)b[group_at + 1U]);
+        bs_hdr = &rej_hdr;
+        reset_cbor_state();
+        bs_rc_rsp(MGMT_ERR_EMSGSIZE);
+    }
+    return true;
+}
+
+/*
  * Task which waits reading console, expecting to get image over
  * serial port.
  */
@@ -1548,6 +1582,7 @@ boot_serial_read_console(const struct boot_uart_funcs *f,int timeout_in_ms)
     int full_line;
     int max_input;
     int elapsed_in_ms = 0;
+    bool discard = false;
 
 #ifndef MCUBOOT_SERIAL_WAIT_FOR_DFU
     bool allow_idle = true;
@@ -1597,9 +1632,10 @@ boot_serial_read_console(const struct boot_uart_funcs *f,int timeout_in_ms)
           in_buf[1] == SHELL_NLIP_PKT_START2) {
             dec_off = 0;
             rc = boot_serial_in_dec(&in_buf[2], off - 2, dec_buf, &dec_off, max_input);
+            discard = (rc == 0) && bs_reject_oversize(dec_buf, dec_off, max_input);
         } else if (in_buf[0] == SHELL_NLIP_DATA_START1 &&
           in_buf[1] == SHELL_NLIP_DATA_START2) {
-            rc = boot_serial_in_dec(&in_buf[2], off - 2, dec_buf, &dec_off, max_input);
+            rc = discard ? 0 : boot_serial_in_dec(&in_buf[2], off - 2, dec_buf, &dec_off, max_input);
         }
 
         /* serve errors: out of decode memory, or bad encoding */
