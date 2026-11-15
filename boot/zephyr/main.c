@@ -642,6 +642,9 @@ int main(void)
 #if defined(CONFIG_BOOT_USB_DFU_GPIO) || defined(CONFIG_BOOT_USB_DFU_WAIT)
     bool usb_dfu_requested = false;
 #endif
+#if defined(CONFIG_MCUBOOT_SERIAL) || defined(CONFIG_BOOT_USB_DFU_WAIT) || defined(CONFIG_BOOT_USB_DFU_GPIO)
+    bool has_upgrade;
+#endif
 
     MCUBOOT_WATCHDOG_SETUP();
     MCUBOOT_WATCHDOG_FEED();
@@ -679,57 +682,68 @@ int main(void)
     }
 #endif /* CONFIG_MCUBOOT_UUID_VID || CONFIG_MCUBOOT_UUID_CID */
 
+#if defined(CONFIG_MCUBOOT_SERIAL) || defined(CONFIG_BOOT_USB_DFU_WAIT) || defined(CONFIG_BOOT_USB_DFU_GPIO)
+    /* Recovery during an interrupted swap could replace slot data the swap trusts unverified. */
+    has_upgrade = boot_check_for_updates();
+
+    if (has_upgrade) {
+        BOOT_LOG_INF("Update already in progress, USB/serial recovery mode checking skipped");
+    } else {
+#endif
 #ifdef CONFIG_BOOT_SERIAL_ENTRANCE_GPIO
-    BOOT_LOG_DBG("Checking GPIO for serial recovery");
-    if (io_detect_pin() &&
-            !io_boot_skip_serial_recovery()) {
-        boot_serial_enter();
-    }
+        BOOT_LOG_DBG("Checking GPIO for serial recovery");
+        if (io_detect_pin() &&
+                !io_boot_skip_serial_recovery()) {
+            boot_serial_enter();
+        }
 #endif
 
 #ifdef CONFIG_BOOT_SERIAL_PIN_RESET
-    BOOT_LOG_DBG("Checking RESET pin for serial recovery");
-    if (io_detect_pin_reset()) {
-        boot_serial_enter();
-    }
+        BOOT_LOG_DBG("Checking RESET pin for serial recovery");
+        if (io_detect_pin_reset()) {
+            boot_serial_enter();
+        }
 #endif
 
 #if defined(CONFIG_BOOT_USB_DFU_GPIO)
-    BOOT_LOG_DBG("Checking GPIO for USB DFU request");
-    if (io_detect_pin()) {
-        BOOT_LOG_DBG("Entering USB DFU");
+        BOOT_LOG_DBG("Checking GPIO for USB DFU request");
+        if (io_detect_pin()) {
+            BOOT_LOG_DBG("Entering USB DFU");
 
-        usb_dfu_requested = true;
+            usb_dfu_requested = true;
 
 #ifdef CONFIG_MCUBOOT_INDICATION_LED
-        io_led_set(1);
+            io_led_set(1);
 #endif
 
-        mcuboot_status_change(MCUBOOT_STATUS_USB_DFU_ENTERED);
-    }
+            mcuboot_status_change(MCUBOOT_STATUS_USB_DFU_ENTERED);
+        }
 #elif defined(CONFIG_BOOT_USB_DFU_WAIT)
-    usb_dfu_requested = true;
+        usb_dfu_requested = true;
 #endif
 
 #if defined(CONFIG_BOOT_USB_DFU_GPIO) || defined(CONFIG_BOOT_USB_DFU_WAIT)
-    if (usb_dfu_requested) {
-        rc = usb_enable(NULL);
-        if (rc) {
-            BOOT_LOG_ERR("Cannot enable USB: %d", rc);
-        } else {
-            BOOT_LOG_INF("Waiting for USB DFU");
+        if (usb_dfu_requested) {
+            rc = usb_enable(NULL);
+            if (rc) {
+                BOOT_LOG_ERR("Cannot enable USB: %d", rc);
+            } else {
+                BOOT_LOG_INF("Waiting for USB DFU");
 
 #if defined(CONFIG_BOOT_USB_DFU_WAIT)
-            BOOT_LOG_DBG("Waiting for USB DFU for %dms", CONFIG_BOOT_USB_DFU_WAIT_DELAY_MS);
-            mcuboot_status_change(MCUBOOT_STATUS_USB_DFU_WAITING);
-            wait_for_usb_dfu(K_MSEC(CONFIG_BOOT_USB_DFU_WAIT_DELAY_MS));
-            BOOT_LOG_INF("USB DFU wait time elapsed");
-            mcuboot_status_change(MCUBOOT_STATUS_USB_DFU_TIMED_OUT);
+                BOOT_LOG_DBG("Waiting for USB DFU for %dms", CONFIG_BOOT_USB_DFU_WAIT_DELAY_MS);
+                mcuboot_status_change(MCUBOOT_STATUS_USB_DFU_WAITING);
+                wait_for_usb_dfu(K_MSEC(CONFIG_BOOT_USB_DFU_WAIT_DELAY_MS));
+                BOOT_LOG_INF("USB DFU wait time elapsed");
+                mcuboot_status_change(MCUBOOT_STATUS_USB_DFU_TIMED_OUT);
 #else
-            wait_for_usb_dfu(K_FOREVER);
-            BOOT_LOG_INF("USB DFU wait terminated");
+                wait_for_usb_dfu(K_FOREVER);
+                BOOT_LOG_INF("USB DFU wait terminated");
 #endif
+            }
         }
+#endif
+#if defined(CONFIG_MCUBOOT_SERIAL) || defined(CONFIG_BOOT_USB_DFU_WAIT) || defined(CONFIG_BOOT_USB_DFU_GPIO)
     }
 #endif
 
@@ -755,7 +769,8 @@ int main(void)
     BOOT_LOG_DBG("Left boot_go with success == %d", FIH_EQ(fih_rc, FIH_SUCCESS) ? 1 : 0);
 
 #ifdef CONFIG_BOOT_SERIAL_BOOT_MODE
-    if (io_detect_boot_mode()) {
+    /* Boot an image the swap just installed once, rather than reverting it unrun on recovery exit. */
+    if (!has_upgrade && io_detect_boot_mode()) {
         /* Boot mode to stay in bootloader, clear status and enter serial
          * recovery mode
          */
@@ -773,7 +788,9 @@ int main(void)
         /* at least one check if time was expired */
         timeout_in_ms = 1;
     }
-    boot_serial_check_start(&boot_funcs,timeout_in_ms);
+    if (!has_upgrade) {
+        boot_serial_check_start(&boot_funcs,timeout_in_ms);
+    }
 
 #ifdef CONFIG_MCUBOOT_INDICATION_LED
     io_led_set(0);
