@@ -28,8 +28,11 @@ int fih_delay_init(void)
 {
     mbedtls_entropy_init(&fih_entropy_ctx);
     mbedtls_ctr_drbg_init(&fih_drbg_ctx);
-    mbedtls_ctr_drbg_seed(&fih_drbg_ctx , mbedtls_entropy_func,
-                          &fih_entropy_ctx, NULL, 0);
+    /* An unseeded DRBG would make every delay predictable: fail closed. */
+    if (mbedtls_ctr_drbg_seed(&fih_drbg_ctx, mbedtls_entropy_func,
+                              &fih_entropy_ctx, NULL, 0) != 0) {
+        FIH_PANIC;
+    }
 
     return 1;
 }
@@ -38,8 +41,10 @@ unsigned char fih_delay_random_uchar(void)
 {
     unsigned char delay;
 
-    mbedtls_ctr_drbg_random(&fih_drbg_ctx,(unsigned char*) &delay,
-                            sizeof(delay));
+    if (mbedtls_ctr_drbg_random(&fih_drbg_ctx, (unsigned char *)&delay,
+                                sizeof(delay)) != 0) {
+        FIH_PANIC;
+    }
 
     return delay;
 }
