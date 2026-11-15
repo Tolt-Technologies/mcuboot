@@ -125,7 +125,7 @@ bootutil_tlv_iter_next(struct image_tlv_iter *it, uint32_t *off, uint16_t *len,
          * the unprotected area cannot turn a protected-only search into
          * an error instead of a clean "not found".
          */
-        if (it->prot && it->tlv_off >= it->prot_end) {
+        if (it->prot && (it->tlv_off >= it->prot_end)) {
             BOOT_LOG_DBG("bootutil_tlv_iter_next: protected TLV %d not found", it->type);
             return 1;
         }
@@ -160,8 +160,8 @@ bootutil_tlv_iter_next(struct image_tlv_iter *it, uint32_t *off, uint16_t *len,
          * unsigned subtraction in the others, so the uint32_t arithmetic
          * can neither overflow nor wrap.
          */
-        if (it->tlv_off > end ||
-            (uint32_t)sizeof(tlv) > end - it->tlv_off) {
+        if ((it->tlv_off > end) ||
+            ((uint32_t)sizeof(tlv) > (end - it->tlv_off))) {
             BOOT_LOG_DBG("bootutil_tlv_iter_next: TLV header at %" PRIu32
                          " overruns section end %" PRIu32,
                          it->tlv_off, end);
@@ -176,7 +176,7 @@ bootutil_tlv_iter_next(struct image_tlv_iter *it, uint32_t *off, uint16_t *len,
             return -1;
         }
 
-        if (tlv.it_len > end - it->tlv_off - (uint32_t)sizeof(tlv)) {
+        if (tlv.it_len > ((end - it->tlv_off) - (uint32_t)sizeof(tlv))) {
             BOOT_LOG_DBG("bootutil_tlv_iter_next: malformed TLV at %" PRIu32
                          " overruns section end %" PRIu32,
                          it->tlv_off, end);

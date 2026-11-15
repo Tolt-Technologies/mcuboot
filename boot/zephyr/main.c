@@ -865,7 +865,7 @@ int main(void)
      * but the TPIU may still be clocking out bytes on the SWO pin.
      * Without this, the app reinitializes ITM and discards in-flight data.
      */
-    while (ITM->TCR & ITM_TCR_BUSY_Msk) {
+    while ((ITM->TCR & ITM_TCR_BUSY_Msk) != 0U) {
     }
     /* ITM BUSY only means the formatter is done — the TPIU output buffer
      * still needs time to clock bytes out at the SWO baud rate.

@@ -675,6 +675,7 @@ void boot_state_clear(struct boot_loader_state *state)
  */
 void bootutil_wipe_memory(void *p, size_t n)
 {
+    /* cppcheck-suppress misra-c2012-11.5 ; a byte-wise wipe of any object takes it as void * */
     volatile unsigned char *v = (volatile unsigned char *)p;
 
     for (size_t i = 0; i < n; i++) {

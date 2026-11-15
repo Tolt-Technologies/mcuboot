@@ -1239,7 +1239,7 @@ boot_primary_confirmed(struct boot_loader_state *state)
 
     rc = boot_read_swap_state(BOOT_IMG_AREA(state, BOOT_SLOT_PRIMARY),
                               &swap_state);
-    return (rc == 0) && (swap_state.image_ok == BOOT_FLAG_SET);
+    return (rc == 0) && (swap_state.image_ok == (uint8_t)BOOT_FLAG_SET);
 }
 #endif
 
