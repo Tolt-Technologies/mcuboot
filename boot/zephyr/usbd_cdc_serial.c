@@ -6,6 +6,7 @@
  * Initialized lazily in boot_uart_fifo_init() only when recovery is needed.
  */
 
+#include <string.h>
 #include <zephyr/kernel.h>
 #include <zephyr/usb/usbd.h>
 #include <zephyr/usb/usbd_msg.h>
@@ -121,6 +122,38 @@ static int boot_usbd_register_hs(void)
 }
 #endif
 
+#if defined(CONFIG_BOOT_SERIAL_CDC_ACM_SN_HOOK)
+static int boot_usbd_add_sn_app(void)
+{
+	/* Static: the USB stack keeps the node and its string after registration. */
+	static char boot_usbd_sn_buf[CONFIG_BOOT_SERIAL_CDC_ACM_SN_MAX_LEN + 1];
+	static struct usbd_desc_node boot_usbd_sn_app = {
+		.str = {
+			.utype = USBD_DUT_STRING_SERIAL_NUMBER,
+			.ascii7 = true,
+		},
+		.ptr = boot_usbd_sn_buf,
+		.bDescriptorType = USB_DESC_STRING,
+	};
+	size_t len;
+	int err = boot_usb_cdc_serial_sn(boot_usbd_sn_buf, sizeof(boot_usbd_sn_buf));
+
+	if (0 != err) {
+		BOOT_LOG_ERR("Serial number hook failed: %d", err);
+		return err;
+	}
+
+	len = strnlen(boot_usbd_sn_buf, sizeof(boot_usbd_sn_buf));
+	if ((0U == len) || (sizeof(boot_usbd_sn_buf) == len)) {
+		BOOT_LOG_ERR("Serial number hook returned %zu characters", len);
+		return -EINVAL;
+	}
+	boot_usbd_sn_app.bLength = (uint8_t)((len + 1U) * 2U);
+
+	return usbd_add_descriptor(&boot_usbd, &boot_usbd_sn_app);
+}
+#endif
+
 int boot_usb_cdc_serial_init(void)
 {
 	USBD_DESC_LANG_DEFINE(boot_usbd_lang);
@@ -128,7 +161,9 @@ int boot_usb_cdc_serial_init(void)
 				      CONFIG_BOOT_SERIAL_CDC_ACM_MANUFACTURER_STRING);
 	USBD_DESC_PRODUCT_DEFINE(boot_usbd_product,
 				 CONFIG_BOOT_SERIAL_CDC_ACM_PRODUCT_STRING);
+#if !defined(CONFIG_BOOT_SERIAL_CDC_ACM_SN_HOOK)
 	IF_ENABLED(CONFIG_HWINFO, (USBD_DESC_SERIAL_NUMBER_DEFINE(boot_usbd_sn);))
+#endif
 	int err;
 	unsigned int bcd_device;
 
@@ -150,6 +185,12 @@ int boot_usb_cdc_serial_init(void)
 		return err;
 	}
 
+#if defined(CONFIG_BOOT_SERIAL_CDC_ACM_SN_HOOK)
+	err = boot_usbd_add_sn_app();
+	if (0 != err) {
+		return err;
+	}
+#else
 	/* Reserved identifiers below come from Zephyr's logging macros. */
 	/* NOLINTNEXTLINE(bugprone-reserved-identifier,cert-dcl37-c,cert-dcl51-cpp) */
 	IF_ENABLED(CONFIG_HWINFO, (
@@ -159,6 +200,7 @@ int boot_usb_cdc_serial_init(void)
 			return err;
 		}
 	))
+#endif
 
 #if USBD_SUPPORTS_HIGH_SPEED
 	if (usbd_caps_speed(&boot_usbd) == USBD_SPEED_HS) {
