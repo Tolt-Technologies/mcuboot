@@ -219,21 +219,33 @@ static inline int bootutil_sha_update(bootutil_sha_context *ctx,
                                       const void *data,
                                       uint32_t data_len)
 {
+    int rc;
+
 #if defined(MCUBOOT_SHA512)
-    return tc_sha512_update(ctx, data, data_len);
+    rc = tc_sha512_update(ctx, data, data_len);
 #else
-    return tc_sha256_update(ctx, data, data_len);
+    rc = tc_sha256_update(ctx, data, data_len);
 #endif
+    if (rc != TC_CRYPTO_SUCCESS) {
+        return -1;
+    }
+    return 0;
 }
 
 static inline int bootutil_sha_finish(bootutil_sha_context *ctx,
                                       uint8_t *output)
 {
+    int rc;
+
 #if defined(MCUBOOT_SHA512)
-    return tc_sha512_final(output, ctx);
+    rc = tc_sha512_final(output, ctx);
 #else
-    return tc_sha256_final(output, ctx);
+    rc = tc_sha256_final(output, ctx);
 #endif
+    if (rc != TC_CRYPTO_SUCCESS) {
+        return -1;
+    }
+    return 0;
 }
 #endif /* MCUBOOT_USE_TINYCRYPT */
 
