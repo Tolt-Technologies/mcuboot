@@ -21,6 +21,7 @@
 #include <zephyr/kernel.h>
 #include "bootutil/bootutil_log.h"
 #include "mcuboot_config/mcuboot_config.h"
+#include "boot_serial/boot_serial.h"
 #include <zephyr/usb/usbd.h>
 
 #if defined(CONFIG_BOOT_SERIAL_UART) && defined(CONFIG_UART_CONSOLE) && \
@@ -276,6 +277,9 @@ boot_uart_fifo_init(void)
 	while (k_sem_take(&boot_cdc_acm_ready, cdc_wait) != 0) {
 #if CONFIG_BOOT_WATCHDOG_FEED
 		MCUBOOT_WATCHDOG_FEED();
+#endif
+#ifdef MCUBOOT_SERIAL_IDLE_TIMEOUT
+		boot_serial_idle_check();
 #endif
 	}
 

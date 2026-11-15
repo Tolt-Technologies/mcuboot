@@ -229,6 +229,15 @@ config BOOT_SERIAL_BOOT_MODE
 	  retention system (i.e. an application must set the boot mode to stay
 	  in serial recovery mode and reboot the module).
 
+config BOOT_SERIAL_BOOT_MODE_IDLE_TIMEOUT
+	int "Leave boot-mode serial recovery after this idle time [ms]"
+	default 0
+	depends on BOOT_SERIAL_BOOT_MODE
+	help
+	  When serial recovery was entered by boot mode, reboot if no host opens
+	  the port, or no valid frame arrives, for this long; the boot mode is
+	  already cleared, so the application boots. 0 waits forever.
+
 config BOOT_SERIAL_NO_APPLICATION
 	bool "Stay in bootloader if no application"
 	help

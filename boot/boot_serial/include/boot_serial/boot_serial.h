@@ -20,6 +20,8 @@
 #ifndef __BOOT_SERIAL_H__
 #define __BOOT_SERIAL_H__
 
+#include <stdint.h>
+
 #ifdef __cplusplus
 extern "C" {
 #endif
@@ -51,6 +53,15 @@ void boot_serial_start(const struct boot_uart_funcs *f);
  * function is similar to boot_serial_start
  */
 void boot_serial_check_start(const struct boot_uart_funcs *f, int timeout_in_ms);
+
+/**
+ * Arm (or with 0, disarm) the recovery idle deadline: boot_serial_idle_check()
+ * reboots once timeout_ms passes with no valid frame. Each valid frame re-arms it.
+ */
+void boot_serial_idle_arm(uint32_t timeout_ms);
+
+/** Reboot if the deadline set by boot_serial_idle_arm() has passed. */
+void boot_serial_idle_check(void);
 
 #ifdef __cplusplus
 }

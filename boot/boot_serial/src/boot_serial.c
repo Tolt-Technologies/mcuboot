@@ -1261,6 +1261,26 @@ out:
 }
 #endif
 
+/* Delay lets the response and deferred log lines drain before the reset. */
+static void
+bs_system_reset(void)
+{
+#ifdef __ZEPHYR__
+#ifdef CONFIG_MULTITHREADING
+    k_sleep(K_MSEC(250));
+#else
+    k_busy_wait(250000);
+#endif
+    sys_reboot(SYS_REBOOT_COLD);
+#elif __ESPRESSIF__
+    esp_rom_delay_us(250000);
+    bootloader_reset();
+#else
+    os_cputime_delay_usecs(250000);
+    hal_system_reset();
+#endif
+}
+
 /*
  * Reset, and (presumably) boot to newly uploaded image. Flush console
  * before restarting.
@@ -1282,20 +1302,7 @@ bs_reset(char *buf, int len)
 
     if (rc == 0) {
         BOOT_LOG_INF("Reset requested via serial recovery");
-#ifdef __ZEPHYR__
-#ifdef CONFIG_MULTITHREADING
-        k_sleep(K_MSEC(250));
-#else
-        k_busy_wait(250000);
-#endif
-        sys_reboot(SYS_REBOOT_COLD);
-#elif __ESPRESSIF__
-        esp_rom_delay_us(250000);
-        bootloader_reset();
-#else
-        os_cputime_delay_usecs(250000);
-        hal_system_reset();
-#endif
+        bs_system_reset();
     }
 }
 
@@ -1505,6 +1512,29 @@ boot_serial_in_dec(char *in, int inlen, char *out, int *out_off, int maxout)
     return 1;
 }
 
+#ifdef MCUBOOT_SERIAL_IDLE_TIMEOUT
+static uint32_t bs_idle_timeout_ms;
+static uint32_t bs_idle_start_ms;
+
+void
+boot_serial_idle_arm(uint32_t timeout_ms)
+{
+    bs_idle_timeout_ms = timeout_ms;
+    bs_idle_start_ms = k_uptime_get_32();
+}
+
+void
+boot_serial_idle_check(void)
+{
+    uint32_t idle_ms = k_uptime_get_32() - bs_idle_start_ms;
+
+    if ((bs_idle_timeout_ms != 0U) && (idle_ms >= bs_idle_timeout_ms)) {
+        BOOT_LOG_INF("Serial recovery idle for %u ms; rebooting", (unsigned int)idle_ms);
+        bs_system_reset();
+    }
+}
+#endif
+
 /*
  * Task which waits reading console, expecting to get image over
  * serial port.
@@ -1540,6 +1570,9 @@ boot_serial_read_console(const struct boot_uart_funcs *f,int timeout_in_ms)
         }
 #endif
         MCUBOOT_WATCHDOG_FEED();
+#ifdef MCUBOOT_SERIAL_IDLE_TIMEOUT
+        boot_serial_idle_check();
+#endif
 #ifdef MCUBOOT_SERIAL_WAIT_FOR_DFU
         uint32_t start = k_uptime_get_32();
 #endif
@@ -1572,6 +1605,9 @@ boot_serial_read_console(const struct boot_uart_funcs *f,int timeout_in_ms)
         /* serve errors: out of decode memory, or bad encoding */
         if (rc == 1) {
             boot_serial_input(&dec_buf[2], dec_off - 2);
+#ifdef MCUBOOT_SERIAL_IDLE_TIMEOUT
+            boot_serial_idle_arm(bs_idle_timeout_ms);
+#endif
         }
         off = 0;
 check_timeout:

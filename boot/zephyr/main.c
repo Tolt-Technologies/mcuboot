@@ -752,6 +752,9 @@ int main(void)
          * recovery mode
          */
         BOOT_LOG_DBG("Staying in serial recovery");
+#ifdef MCUBOOT_SERIAL_IDLE_TIMEOUT
+        boot_serial_idle_arm(CONFIG_BOOT_SERIAL_BOOT_MODE_IDLE_TIMEOUT);
+#endif
         boot_serial_enter();
     }
 #endif
