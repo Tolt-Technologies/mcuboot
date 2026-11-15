@@ -85,8 +85,10 @@ void io_led_init(void)
         return;
     }
 
-    gpio_pin_configure_dt(&led0, GPIO_OUTPUT);
-    gpio_pin_set_dt(&led0, 0);
+    int rc = gpio_pin_configure_dt(&led0, GPIO_OUTPUT_INACTIVE);
+    if (0 != rc) {
+        BOOT_LOG_ERR("LED0 configure failed: %d", rc);
+    }
 }
 
 void io_led_set(int value)
