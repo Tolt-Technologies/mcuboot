@@ -609,9 +609,10 @@ static void boot_serial_enter()
     mcuboot_status_change(MCUBOOT_STATUS_SERIAL_DFU_ENTERED);
 
     BOOT_LOG_INF("Enter the serial recovery mode");
-    /* The recovery loop starves the log thread; after the flush, LOG_PANIC
-     * keeps later messages going out synchronously. */
+#if defined(CONFIG_LOG_BACKEND_UART)
+    /* Only a UART backend can collide with the recovery transport; SWO and RTT keep logging. */
     ZEPHYR_BOOT_LOG_STOP();
+#endif
     rc = boot_console_init();
     if (rc != 0) {
         BOOT_LOG_DBG("Error initializing boot console. rc = %d", rc);
