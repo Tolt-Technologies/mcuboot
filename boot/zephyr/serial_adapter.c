@@ -71,8 +71,19 @@ static sys_slist_t avail_queue;
 static sys_slist_t lines_queue;
 
 static uint16_t cur;
-/* Set when the RX callback ran out of line buffers and disabled RX. */
-static volatile bool rx_throttled;
+static uint8_t rx_batch_buf[CONFIG_BOOT_SERIAL_UART_RX_BATCH_SIZE];
+/* Bytes of rx_batch_buf read from the driver but not yet stored in a line buffer */
+static size_t rx_pend_off;
+static size_t rx_pend_len;
+
+#if defined(CONFIG_BOOT_SERIAL_CDC_ACM) || defined(CONFIG_BOOT_SERIAL_RAW_PROTOCOL)
+/*
+ * Due to USB CDC ACM having a large write size, which might be more than the available buffers
+ * can hold, this will be set to true when the UART is blocked and should not be read from until
+ * the buffers have been read by the serial recovery code
+ */
+static bool uart_blocked = false;
+#endif
 
 static int boot_uart_fifo_getline(char **line);
 static int boot_uart_fifo_init(void);
@@ -139,11 +150,52 @@ boot_console_init(void)
 	return boot_uart_fifo_init();
 }
 
+/* Store pending batch bytes into line buffers; returns false if none is free. */
+static bool
+boot_uart_fifo_store(void)
+{
+	static struct line_input *cmd;
+
+	while (rx_pend_len > 0U) {
+		const uint8_t *p = &rx_batch_buf[rx_pend_off];
+		const uint8_t *nl;
+		size_t chunk;
+		size_t copy_len;
+
+		if (cmd == NULL) {
+			sys_snode_t *node = sys_slist_get(&avail_queue);
+
+			if (node == NULL) {
+				return false;
+			}
+			/* cppcheck-suppress [misra-c2012-11.4, misra-c2012-18.4, misra-c2012-1.2] ; CONTAINER_OF is Zephyr's macro */
+			cmd = CONTAINER_OF(node, struct line_input, node);
+		}
+
+		/* cppcheck-suppress misra-c2012-11.5 ; memchr returns a pointer into rx_batch_buf */
+		nl = memchr(p, '\n', rx_pend_len);
+		/* cppcheck-suppress misra-c2012-18.4 ; nl and p both point into rx_batch_buf */
+		chunk = (nl != NULL) ? (size_t)(nl - p + 1) : rx_pend_len;
+		copy_len = MIN(chunk, (size_t)CONFIG_BOOT_MAX_LINE_INPUT_LEN - (size_t)cur);
+		(void)memcpy(&cmd->line[cur], p, copy_len);
+		cur = (uint16_t)(cur + copy_len);
+		rx_pend_off += chunk;
+		rx_pend_len -= chunk;
+
+		if (nl != NULL) {
+			cmd->len = cur;
+			sys_slist_append(&lines_queue, &cmd->node);
+			cur = 0;
+			cmd = NULL;
+		}
+	}
+
+	return true;
+}
+
 static void
 boot_uart_fifo_callback(const struct device *dev, void *user_data)
 {
-	static struct line_input *cmd;
-	uint8_t byte;
 	int rx;
 
 	uart_irq_update(uart_dev);
@@ -152,34 +204,30 @@ boot_uart_fifo_callback(const struct device *dev, void *user_data)
 		return;
 	}
 
+#if defined(CONFIG_BOOT_SERIAL_CDC_ACM) || defined(CONFIG_BOOT_SERIAL_RAW_PROTOCOL)
+	if (uart_blocked) {
+		return;
+	}
+#endif
+
 	while (true) {
-		if (cmd == NULL) {
-			sys_snode_t *node = sys_slist_get(&avail_queue);
-
-			if (node == NULL) {
-				/* Leave the bytes with the driver until getline frees a buffer. */
-				rx_throttled = true;
-				uart_irq_rx_disable(uart_dev);
-				return;
-			}
-			/* cppcheck-suppress [misra-c2012-11.4, misra-c2012-18.4, misra-c2012-1.2] ; CONTAINER_OF is Zephyr's macro */
-			cmd = CONTAINER_OF(node, struct line_input, node);
-		}
-
-		rx = uart_fifo_read(uart_dev, &byte, 1);
-		if (rx != 1) {
+		rx = uart_fifo_read(uart_dev, rx_batch_buf, sizeof(rx_batch_buf));
+		if (rx <= 0) {
 			break;
 		}
 
-		if (cur < CONFIG_BOOT_MAX_LINE_INPUT_LEN) {
-			cmd->line[cur++] = byte;
-		}
-
-		if (byte ==  '\n') {
-			cmd->len = cur;
-			sys_slist_append(&lines_queue, &cmd->node);
-			cur = 0;
-			cmd = NULL;
+		rx_pend_off = 0;
+		rx_pend_len = (size_t)rx;
+		if (!boot_uart_fifo_store()) {
+#if defined(CONFIG_BOOT_SERIAL_CDC_ACM)
+			/* Keep the rest until boot_uart_fifo_getline() frees a buffer */
+			uart_blocked = true;
+			uart_irq_rx_disable(uart_dev);
+#else
+			BOOT_LOG_ERR("Not enough memory to store incoming data!");
+			rx_pend_len = 0;
+#endif
+			return;
 		}
 	}
 }
@@ -187,40 +235,49 @@ boot_uart_fifo_callback(const struct device *dev, void *user_data)
 static int
 boot_uart_fifo_getline(char **line)
 {
-	static struct line_input *cmd;
+	static struct line_input *input_cmd;
 	sys_snode_t *node;
-	bool resume;
 	int key;
+
+#if defined(CONFIG_BOOT_SERIAL_CDC_ACM) || defined(CONFIG_BOOT_SERIAL_RAW_PROTOCOL)
+	bool unblock = false;
+#endif
 
 	key = irq_lock();
 	/* Recycle cmd buffer returned previous time */
-	if (cmd != NULL) {
-		if (sys_slist_peek_tail(&avail_queue) != &cmd->node) {
-			sys_slist_append(&avail_queue, &cmd->node);
+	if (input_cmd != NULL) {
+		if (sys_slist_peek_tail(&avail_queue) != &input_cmd->node) {
+			sys_slist_append(&avail_queue, &input_cmd->node);
+
+#if defined(CONFIG_BOOT_SERIAL_CDC_ACM)
+			if (uart_blocked && boot_uart_fifo_store()) {
+				unblock = true;
+			}
+#endif
 		}
 	}
 
 	node = sys_slist_get(&lines_queue);
-	resume = rx_throttled && !sys_slist_is_empty(&avail_queue);
-	if (resume) {
-		rx_throttled = false;
-	}
 	irq_unlock(key);
 
-	if (resume) {
+#if defined(CONFIG_BOOT_SERIAL_CDC_ACM) || defined(CONFIG_BOOT_SERIAL_RAW_PROTOCOL)
+	if (unblock) {
+		uart_blocked = false;
 		uart_irq_rx_enable(uart_dev);
 	}
+#endif
 
 	if (node == NULL) {
-		cmd = NULL;
+		input_cmd = NULL;
 		*line = NULL;
 
 		return 0;
 	}
 
-	cmd = CONTAINER_OF(node, struct line_input, node);
-	*line = cmd->line;
-	return cmd->len;
+	/* cppcheck-suppress [misra-c2012-11.4, misra-c2012-18.4, misra-c2012-1.2] ; CONTAINER_OF is Zephyr's macro */
+	input_cmd = CONTAINER_OF(node, struct line_input, node);
+	*line = input_cmd->line;
+	return input_cmd->len;
 }
 
 static int
