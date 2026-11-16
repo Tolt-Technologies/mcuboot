@@ -143,6 +143,7 @@ if MBEDTLS_ENABLE_HEAP
 config MBEDTLS_HEAP_SIZE
 	default 8192 if BOOT_RSA_PSA
 	default 2048 if BOOT_ED25519_PSA
+	default 8192 if BOOT_SIGNATURE_TYPE_ECDSA_P384
 	help
 	  The PSA internals need to be able to allocate memory for operation
 	  and it uses mbedTLS heap for that.
@@ -379,6 +380,7 @@ config BOOT_SIGNATURE_TYPE_ECDSA_P384
 	select PSA_CRYPTO_CLIENT
 	select PSA_CRYPTO_C
 	select PSA_WANT_ALG_ECDSA
+	select MBEDTLS_ENABLE_HEAP if MBEDTLS_BUILTIN
 	select MBEDTLS_ASN1_PARSE_C if MBEDTLS_BUILTIN && BOOT_ENCRYPT_IMAGE
 	select BOOT_EC384_PSA_DEPENDENCIES if BOOT_ENCRYPT_IMAGE
 	select PSA_WANT_KEY_TYPE_ECC_PUBLIC_KEY
