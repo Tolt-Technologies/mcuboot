@@ -22,6 +22,10 @@
 #include "bootutil/crypto/aes_kw.h"
 #endif
 
+#if defined(MCUBOOT_ENCRYPT_KEY_TABLE)
+#include <mbedtls/platform_util.h>
+#endif
+
 #if !defined(MCUBOOT_USE_PSA_CRYPTO)
 #if defined(MCUBOOT_ENCRYPT_EC256)
 #include "bootutil/crypto/ecdh_p256.h"
@@ -565,6 +569,45 @@ boot_decrypt_key(const uint8_t *buf, uint8_t *enckey)
 }
 #endif /* CONFIG_BOOT_ED25519_PSA  && CONFIG_BOOT_ECDSA_PSA */
 
+#if defined(MCUBOOT_ENCRYPT_KEY_TABLE)
+struct boot_enc_key_table_entry {
+    uint32_t hdr_off;
+    uint8_t key[BOOT_ENC_KEY_SIZE];
+};
+
+_Static_assert(sizeof(struct boot_enc_key_table_entry) == (4U + BOOT_ENC_KEY_SIZE),
+               "a key table entry is a word, then the key");
+
+/* cppcheck-suppress misra-c2012-11.4 ; the table sits at a fixed RAM address set by the earlier stage */
+static struct boot_enc_key_table_entry *const boot_enc_key_table =
+    (struct boot_enc_key_table_entry *)MCUBOOT_ENC_KEY_TABLE_ADDR;
+
+/* Copies the key of the image whose header is at flash offset hdr_off; -1 if the table has none. */
+static int
+boot_enc_key_table_get(uint32_t hdr_off, uint8_t *enckey)
+{
+    size_t i;
+
+    assert(enckey != NULL);
+    assert(hdr_off != 0xFFFFFFFFU);
+    for (i = 0; i < MCUBOOT_ENC_KEY_TABLE_ENTRIES; i++) {
+        if (boot_enc_key_table[i].hdr_off == hdr_off) {
+            memcpy(enckey, boot_enc_key_table[i].key, BOOT_ENC_KEY_SIZE);
+            return 0;
+        }
+    }
+    BOOT_LOG_ERR("No AES key for the image at 0x%" PRIx32, hdr_off);
+    return -1;
+}
+
+void
+boot_enc_key_table_wipe(void)
+{
+    mbedtls_platform_zeroize(boot_enc_key_table,
+                             sizeof(*boot_enc_key_table) * MCUBOOT_ENC_KEY_TABLE_ENTRIES);
+}
+#endif /* MCUBOOT_ENCRYPT_KEY_TABLE */
+
 /*
  * Load encryption key.
  */
@@ -599,6 +642,18 @@ boot_enc_load(struct boot_loader_state *state, int slot,
     it.start_off = boot_get_state_secondary_offset(state, fap);
 #endif
 
+#if defined(MCUBOOT_ENCRYPT_KEY_TABLE)
+    (void)hdr;
+    (void)buf;
+    (void)off;
+    (void)len;
+    (void)rc;
+#if defined(MCUBOOT_SWAP_USING_OFFSET)
+    return boot_enc_key_table_get(flash_area_get_off(fap) + it.start_off, bs->enckey[slot]);
+#else
+    return boot_enc_key_table_get(flash_area_get_off(fap), bs->enckey[slot]);
+#endif
+#else
     rc = bootutil_tlv_iter_begin(&it, hdr, fap, BOOT_ENC_TLV, false);
     if (rc) {
         return -1;
@@ -624,6 +679,7 @@ boot_enc_load(struct boot_loader_state *state, int slot,
     }
 
     return boot_decrypt_key(buf, bs->enckey[slot]);
+#endif /* MCUBOOT_ENCRYPT_KEY_TABLE */
 }
 
 int

@@ -63,6 +63,7 @@
 
 #include <bootutil/image.h>
 #include <bootutil/bootutil.h>
+#include <bootutil/enc_key.h>
 
 #include "boot_serial/boot_serial.h"
 #include "boot_serial_priv.h"
@@ -1263,6 +1264,9 @@ out:
 static void
 bs_system_reset(void)
 {
+#if defined(MCUBOOT_ENCRYPT_KEY_TABLE)
+    boot_enc_key_table_wipe();
+#endif
 #ifdef __ZEPHYR__
 #ifdef CONFIG_MULTITHREADING
     (void)k_sleep(K_MSEC(250));

@@ -107,7 +107,7 @@ extern "C" {
 #   else
 #       define BOOT_ENC_TLV     IMAGE_TLV_ENC_X25519_SHA512
 #   endif
-#elif defined(MCUBOOT_ENCRYPT_KW)
+#elif defined(MCUBOOT_ENCRYPT_KW) || defined(MCUBOOT_ENCRYPT_KEY_TABLE)
 #   define BOOT_ENC_TLV_SIZE   (BOOT_ENC_KEY_SIZE + 8)
 #   define BOOT_ENC_TLV        IMAGE_TLV_ENC_KW
 #endif

@@ -72,6 +72,11 @@ void boot_enc_encrypt(struct enc_key_data *enc_state,
         uint32_t off, uint32_t sz, uint32_t blk_off, uint8_t *buf);
 void boot_enc_decrypt(struct enc_key_data *enc_state,
         uint32_t off, uint32_t sz, uint32_t blk_off, uint8_t *buf);
+#if defined(MCUBOOT_ENCRYPT_KEY_TABLE)
+/* Wipes the image key table; call before starting the application or resetting. */
+void boot_enc_key_table_wipe(void);
+#endif
+
 /* Note that boot_enc_zeorize takes BOOT_CURR_ENC, not BOOT_CURR_ENC_SLOT */
 void boot_enc_zeroize(struct enc_key_data *enc_state);
 
