@@ -817,7 +817,7 @@ config BOOT_ENCRYPT_IMAGE
 	select BOOT_ENCRYPT_RSA if BOOT_SIGNATURE_TYPE_RSA
 	select BOOT_ENCRYPT_EC256 if BOOT_SIGNATURE_TYPE_ECDSA_P256
 	select BOOT_ENCRYPT_X25519 if BOOT_SIGNATURE_TYPE_ED25519
-	select BOOT_ENCRYPT_EC384 if BOOT_SIGNATURE_TYPE_ECDSA_P384 && !BOOT_ENCRYPT_KEY_TABLE
+	select BOOT_ENCRYPT_EC384 if BOOT_SIGNATURE_TYPE_ECDSA_P384
 	depends on !SINGLE_APPLICATION_SLOT || MCUBOOT_SERIAL
 	help
 	  If y, images in the secondary slot can be encrypted and are decrypted
@@ -869,28 +869,6 @@ config BOOT_ENCRYPT_ALG_AES_256
 
 endchoice # BOOT_ENCRYPT_ALG
 
-config BOOT_ENCRYPT_KEY_TABLE
-	bool "Take image AES keys from a key table left in RAM by an earlier stage"
-	depends on BOOT_ENCRYPT_ALG_AES_256 && !BOOT_SWAP_SAVE_ENCTLV
-	help
-	  If y, MCUboot holds no key-exchange key. An earlier boot stage unwraps
-	  each encrypted image's AES-256 key and leaves it in a table in RAM,
-	  keyed by the flash address of the image header. MCUboot looks the key
-	  up there and wipes the table before it starts the application and
-	  before it resets.
-
-config BOOT_ENCRYPT_KEY_TABLE_ADDR
-	hex "Address of the image key table"
-	depends on BOOT_ENCRYPT_KEY_TABLE
-	help
-	  Each entry is the image header's flash address as a 32-bit word,
-	  0xFFFFFFFF when empty, then the 32-byte AES key.
-
-config BOOT_ENCRYPT_KEY_TABLE_ENTRIES
-	int "Entries in the image key table"
-	depends on BOOT_ENCRYPT_KEY_TABLE
-	default 3
-
 endif # BOOT_ENCRYPT_IMAGE
 
 if (BOOT_ENCRYPT_X25519 || BOOT_ENCRYPT_EC384) && BOOT_USE_PSA_CRYPTO
@@ -934,7 +912,7 @@ endif # (BOOT_ENCRYPT_X25519 || BOOT_ENCRYPT_EC384) && BOOT_USE_PSA_CRYPTO
 
 config BOOT_ENCRYPTION_KEY_FILE
 	string "Encryption key file"
-	depends on BOOT_ENCRYPT_IMAGE && !BOOT_ENCRYPT_KEY_TABLE
+	depends on BOOT_ENCRYPT_IMAGE
 	default "enc-rsa2048-priv.pem" if BOOT_ENCRYPT_RSA
 	default "enc-ec256-priv.pem" if BOOT_ENCRYPT_EC256
 	default "enc-x25519-priv.pem" if BOOT_ENCRYPT_X25519

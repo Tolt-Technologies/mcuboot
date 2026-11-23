@@ -48,7 +48,6 @@
 #include "bootutil/fault_injection_hardening.h"
 #include "bootutil/mcuboot_status.h"
 #include "bootutil/sign_key.h"
-#include "bootutil/enc_key.h"
 #include "flash_map_backend/flash_map_backend.h"
 
 #if defined(CONFIG_MCUBOOT_UUID_VID) || defined(CONFIG_MCUBOOT_UUID_CID)
@@ -875,9 +874,6 @@ int main(void)
     k_busy_wait(SWO_TPIU_DRAIN_US);
 #endif
 
-#if defined(MCUBOOT_ENCRYPT_KEY_TABLE)
-    boot_enc_key_table_wipe();
-#endif
     do_boot(&rsp);
 
     mcuboot_status_change(MCUBOOT_STATUS_BOOT_FAILED);
