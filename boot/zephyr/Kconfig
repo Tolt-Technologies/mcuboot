@@ -814,10 +814,10 @@ config BOOT_ENCRYPTION_SUPPORT
 config BOOT_ENCRYPT_IMAGE
 	bool "Support for encrypted image updates"
 	depends on BOOT_ENCRYPTION_SUPPORT
-	select BOOT_ENCRYPT_RSA if BOOT_SIGNATURE_TYPE_RSA
-	select BOOT_ENCRYPT_EC256 if BOOT_SIGNATURE_TYPE_ECDSA_P256
-	select BOOT_ENCRYPT_X25519 if BOOT_SIGNATURE_TYPE_ED25519
-	select BOOT_ENCRYPT_EC384 if BOOT_SIGNATURE_TYPE_ECDSA_P384
+	select BOOT_ENCRYPT_RSA if BOOT_SIGNATURE_TYPE_RSA && !BOOT_ENC_KEY_HOOK
+	select BOOT_ENCRYPT_EC256 if BOOT_SIGNATURE_TYPE_ECDSA_P256 && !BOOT_ENC_KEY_HOOK
+	select BOOT_ENCRYPT_X25519 if BOOT_SIGNATURE_TYPE_ED25519 && !BOOT_ENC_KEY_HOOK
+	select BOOT_ENCRYPT_EC384 if BOOT_SIGNATURE_TYPE_ECDSA_P384 && !BOOT_ENC_KEY_HOOK
 	depends on !SINGLE_APPLICATION_SLOT || MCUBOOT_SERIAL
 	help
 	  If y, images in the secondary slot can be encrypted and are decrypted
@@ -869,6 +869,19 @@ config BOOT_ENCRYPT_ALG_AES_256
 
 endchoice # BOOT_ENCRYPT_ALG
 
+config BOOT_ENC_KEY_HOOK
+	bool "Take image encryption keys from boot_enc_key_hook()"
+	depends on !BOOT_SWAP_SAVE_ENCTLV
+	depends on !MCUBOOT_SERIAL || BOOT_SERIAL_DENY_PRIMARY_UPLOAD
+	help
+	  If y, MCUboot holds no key-exchange key. It passes each image's
+	  AES-KW key TLV to boot_enc_key_hook(), which the project supplies,
+	  and the hook returns the AES key, for instance one that an earlier
+	  boot stage unwrapped. It is up to the project to add the source file
+	  to the build. Serial recovery must write the secondary slot only,
+	  since an image decrypted in place on upload would need its key before
+	  the earlier stage has seen it.
+
 endif # BOOT_ENCRYPT_IMAGE
 
 if (BOOT_ENCRYPT_X25519 || BOOT_ENCRYPT_EC384) && BOOT_USE_PSA_CRYPTO
@@ -912,7 +925,7 @@ endif # (BOOT_ENCRYPT_X25519 || BOOT_ENCRYPT_EC384) && BOOT_USE_PSA_CRYPTO
 
 config BOOT_ENCRYPTION_KEY_FILE
 	string "Encryption key file"
-	depends on BOOT_ENCRYPT_IMAGE
+	depends on BOOT_ENCRYPT_IMAGE && !BOOT_ENC_KEY_HOOK
 	default "enc-rsa2048-priv.pem" if BOOT_ENCRYPT_RSA
 	default "enc-ec256-priv.pem" if BOOT_ENCRYPT_EC256
 	default "enc-x25519-priv.pem" if BOOT_ENCRYPT_X25519
