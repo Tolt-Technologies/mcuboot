@@ -80,6 +80,31 @@ ECIES-P256 a new TLV with value `0x32` is added, and for ECIES-X25519 a
 newt TLV with value `0x33` is added. The contents of those TLVs
 are the results of applying the given operations over the AES-CTR key.
 
+## [Keys from an earlier boot stage](#keys-from-an-earlier-boot-stage)
+
+On a device where an earlier boot stage holds the key-encryption key, for
+instance in a hardware key store, that stage can unwrap the key TLV of each
+image and hand MCUboot the AES-CTR keys. MCUboot then holds no private or
+key-encryption key at all.
+
+Enable `MCUBOOT_ENC_KEY_HOOK` (`CONFIG_BOOT_ENC_KEY_HOOK` on Zephyr) and
+implement `boot_enc_key_hook()`, declared in `bootutil/boot_hooks.h`. MCUboot
+reads the key TLV of each image it needs to decrypt, AES-KW unless another
+scheme is selected, and passes its value to the hook in place of decrypting it.
+Matching on the TLV ties each key to the image it was wrapped for. The hook is
+the only source of keys: an image it has no key for is not decrypted. Keys that
+the earlier stage leaves in memory should be erased before the application
+starts, for instance from `boot_image_jump_hook()`.
+
+Serial recovery has to write the secondary slot only
+(`MCUBOOT_SERIAL_DENY_PRIMARY_UPLOAD`): an image uploaded to the primary slot is
+decrypted in place on upload, before the earlier stage has seen its key TLV.
+An image uploaded to the secondary slot is decrypted when it is swapped in,
+after the reboot that ends recovery.
+
+`MCUBOOT_SWAP_SAVE_ENCTLV` cannot be combined with the hook, since a resumed
+swap decrypts the saved TLV with `boot_decrypt_key()`, which the hook omits.
+
 ## [ECIES encryption](#ecies-encryption)
 
 ECIES follows a well defined protocol to generate an encryption key. There are

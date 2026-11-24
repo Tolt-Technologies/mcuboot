@@ -49,6 +49,13 @@ BOOT_LOG_MODULE_DECLARE(mcuboot);
 
 #include "bootutil_priv.h"
 
+#if defined(MCUBOOT_ENC_KEY_HOOK)
+#include "bootutil/boot_hooks.h"
+#if MCUBOOT_SWAP_SAVE_ENCTLV
+#error "MCUBOOT_SWAP_SAVE_ENCTLV resumes through boot_decrypt_key(), which MCUBOOT_ENC_KEY_HOOK omits"
+#endif
+#endif
+
 /* NOUP Fixme:  */
 #if !defined(MCUBOOT_USE_PSA_CRYPTO)
 #if defined(MCUBOOT_ENCRYPT_EC256) || defined(MCUBOOT_ENCRYPT_X25519)
@@ -73,7 +80,7 @@ static int bootutil_constant_time_compare(const uint8_t *a, const uint8_t *b, si
 #endif
 #endif
 
-#if defined(MCUBOOT_ENCRYPT_KW)
+#if defined(MCUBOOT_ENCRYPT_KW) && !defined(MCUBOOT_ENC_KEY_HOOK)
 static int
 key_unwrap(const uint8_t *wrapped, uint8_t *enckey, struct bootutil_key *bootutil_enc_key)
 {
@@ -337,7 +344,7 @@ error:
 }
 #endif /* MCUBOOT_ENCRYPT_EC256 || MCUBOOT_ENCRYPT_X25519 */
 
-#if !defined(MCUBOOT_ENC_BUILTIN_KEY)
+#if !defined(MCUBOOT_ENC_BUILTIN_KEY) && !defined(MCUBOOT_ENC_KEY_HOOK)
 extern const struct bootutil_key bootutil_enc_key;
 
 /*
@@ -350,7 +357,7 @@ int boot_enc_retrieve_private_key(struct bootutil_key **private_key)
 
     return 0;
 }
-#endif /* !MCUBOOT_ENC_BUILTIN_KEY */
+#endif /* !MCUBOOT_ENC_BUILTIN_KEY && !MCUBOOT_ENC_KEY_HOOK */
 
 #if ( (defined(MCUBOOT_ENCRYPT_RSA) && defined(MCUBOOT_USE_MBED_TLS) && !defined(MCUBOOT_USE_PSA_CRYPTO)) || \
       (defined(MCUBOOT_ENCRYPT_EC256) && defined(MCUBOOT_USE_MBED_TLS)) )
@@ -370,6 +377,7 @@ static int fake_rng(void *p_rng, unsigned char *output, size_t len)
 #endif /* (MCUBOOT_ENCRYPT_RSA && MCUBOOT_USE_MBED_TLS && !MCUBOOT_USE_PSA_CRYPTO) ||
           (MCUBOOT_ENCRYPT_EC256 && MCUBOOT_USE_MBED_TLS) */
 
+#if !defined(MCUBOOT_ENC_KEY_HOOK)
 /*
  * Decrypt an encryption key TLV.
  *
@@ -563,6 +571,7 @@ boot_decrypt_key(const uint8_t *buf, uint8_t *enckey)
 
     return rc;
 }
+#endif /* !MCUBOOT_ENC_KEY_HOOK */
 #endif /* CONFIG_BOOT_ED25519_PSA  && CONFIG_BOOT_ECDSA_PSA */
 
 /*
@@ -623,7 +632,13 @@ boot_enc_load(struct boot_loader_state *state, int slot,
         return -1;
     }
 
+#if defined(MCUBOOT_ENC_KEY_HOOK)
+    rc = boot_enc_key_hook(BOOT_CURR_IMG(state), slot, buf, BOOT_ENC_TLV_SIZE,
+                           bs->enckey[slot]);
+    return (rc == 0) ? 0 : -1;
+#else
     return boot_decrypt_key(buf, bs->enckey[slot]);
+#endif
 }
 
 int

@@ -27,6 +27,7 @@ fn main() {
     let enc_aes256_rsa = env::var("CARGO_FEATURE_ENC_AES256_RSA").is_ok();
     let enc_kw = env::var("CARGO_FEATURE_ENC_KW").is_ok();
     let enc_aes256_kw = env::var("CARGO_FEATURE_ENC_AES256_KW").is_ok();
+    let enc_key_hook = env::var("CARGO_FEATURE_ENC_KEY_HOOK").is_ok();
     let enc_ec256 = env::var("CARGO_FEATURE_ENC_EC256").is_ok();
     let enc_ec256_mbedtls = env::var("CARGO_FEATURE_ENC_EC256_MBEDTLS").is_ok();
     let enc_aes256_ec256 = env::var("CARGO_FEATURE_ENC_AES256_EC256").is_ok();
@@ -323,6 +324,11 @@ fn main() {
 
         conf.file("../../boot/bootutil/src/encrypted.c");
         conf.file("csupport/keys.c");
+
+        if enc_key_hook {
+            conf.conf.define("MCUBOOT_ENC_KEY_HOOK", None);
+            conf.file("csupport/enc_key_hook.c");
+        }
 
         if sig_rsa || sig_rsa3072 {
             conf.file("../../ext/mbedtls/library/sha256.c");

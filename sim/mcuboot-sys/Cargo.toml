@@ -57,6 +57,9 @@ enc-kw = []
 # Encrypt image in the secondary slot using AES-256-CTR and AES-KW-256
 enc-aes256-kw = []
 
+# Take image keys from boot_enc_key_hook(), which unwraps the enc-kw TLV itself
+enc-key-hook = []
+
 # Encrypt image in the secondary slot using ECIES-P256
 enc-ec256 = []
 

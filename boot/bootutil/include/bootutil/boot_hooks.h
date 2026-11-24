@@ -237,6 +237,25 @@ int boot_img_install_stat_hook(int image_index, int slot,
  */
 int boot_reset_request_hook(bool force);
 
+/** Hook that supplies the encryption key of an image.
+ *
+ * Enabled by MCUBOOT_ENC_KEY_HOOK. MCUboot holds no key-exchange key and passes
+ * the image's key TLV here in place of decrypting it, for instance to look up a
+ * key that an earlier boot stage unwrapped. AES-KW unless an ECIES or RSA
+ * scheme is also selected.
+ *
+ * @param img_index the index of the image pair
+ * @param slot slot number
+ * @param enc_tlv the value of the image's key TLV
+ * @param enc_tlv_len length of enc_tlv, BOOT_ENC_TLV_SIZE
+ * @param enckey buffer for the BOOT_ENC_KEY_SIZE-byte AES key
+ *
+ * @retval 0: enckey holds the image's key,
+ *         otherwise an error-code value: no key for the image.
+ */
+int boot_enc_key_hook(int img_index, int slot, const uint8_t *enc_tlv,
+                      size_t enc_tlv_len, uint8_t *enckey);
+
 /**
  * Hook to implement custom action before boot_go() function.
  *
