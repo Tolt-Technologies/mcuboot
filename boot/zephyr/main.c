@@ -218,7 +218,7 @@ boot_spu_lock_and_jump(uint32_t msp, uint32_t reset)
     CODE_UNREACHABLE;
 }
 
-#if defined(MCUBOOT_ENC_IMAGES)
+#if defined(MCUBOOT_ENC_IMAGES) && !defined(MCUBOOT_ENC_KEY_HOOK)
 extern const struct bootutil_key bootutil_enc_key;
 
 static bool boot_spu_lock_covers_enc_key(void)
@@ -848,7 +848,7 @@ int main(void)
     BOOT_LOG_INF("Jumping to the first image slot");
 #endif
 
-#if defined(CONFIG_BOOT_NRF_SPU_LOCK_BOOT_PARTITION) && defined(MCUBOOT_ENC_IMAGES)
+#if defined(CONFIG_BOOT_NRF_SPU_LOCK_BOOT_PARTITION) && defined(MCUBOOT_ENC_IMAGES) && !defined(MCUBOOT_ENC_KEY_HOOK)
     if (!boot_spu_lock_covers_enc_key()) {
         BOOT_LOG_ERR("Image encryption key lies outside the SPU-locked flash");
         FIH_PANIC;
